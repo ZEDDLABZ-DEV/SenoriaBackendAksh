@@ -1,0 +1,669 @@
+// Proposed Senoria caregiver schema.
+// JSON field names stay camelCase in the API. Column names are snake_case.
+// This is not a copy of a previous production database.
+//
+// CHECK constraints and the expression unique index users_email_lower_idx are
+// enforced in SQL. They are intentionally absent from this file. Keep them:
+// prisma/migrations/20261019150000_init/migration.sql and prisma/preserve-constraints.sql.
+// Do not drop them to remove schema drift.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  role         String
+  avatar       String?
+  phone        String?
+  position     String?
+  status       String
+  sessionVersion Int      @default(0) @map("session_version")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  refreshTokens RefreshToken[]
+  permissions   UserPermission[]
+  assignments   CaregiverClientAssignment[]
+  appointments  Appointment[]
+  completions   CareItemCompletion[]
+  checkIns      CarePlanCheckIn[]
+  auditLogs     AuditLog[]
+  hourAdjustments VisitHourAdjustment[]
+  passwordResets PasswordResetToken[]
+  availability      CaregiverAvailability[]
+  timeOff           CaregiverTimeOff[]
+  visitSeries       VisitSeries[]
+  coverageRequests  AppointmentRelease[] @relation("CoverageRequestedBy")
+  coverageAccepted  AppointmentRelease[] @relation("CoverageAcceptedBy")
+  notifications     Notification[]
+  notificationDevices NotificationDevice[]
+  clientsCreated    Client[] @relation("ClientCreatedBy")
+  clientsUpdated    Client[] @relation("ClientUpdatedBy")
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  familyId  String    @map("family_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model UserPermission {
+  userId     String @map("user_id") @db.Uuid
+  permission String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permission])
+  @@map("user_permissions")
+}
+
+model Client {
+  id                     String    @id @db.Uuid
+  firstName              String    @map("first_name")
+  lastName               String    @map("last_name")
+  dateOfBirth            DateTime? @map("date_of_birth") @db.Date
+  gender                 String
+  phone                  String
+  email                  String?
+  profileImage           String?   @map("profile_image")
+  notes                  String    @default("")
+  status                 String
+  addressStreet          String    @default("") @map("address_street")
+  addressApartment       String    @default("") @map("address_apartment")
+  addressCity            String    @default("") @map("address_city")
+  addressState           String    @default("") @map("address_state")
+  addressZipCode         String    @default("") @map("address_zip_code")
+  addressCountry         String    @default("") @map("address_country")
+  gateAccessCode         String    @default("") @map("gate_access_code")
+  navigationInstructions String    @default("") @map("navigation_instructions")
+  genderOtherNote        String?   @map("gender_other_note")
+  createdById            String?   @map("created_by_id") @db.Uuid
+  updatedById            String?   @map("updated_by_id") @db.Uuid
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy User? @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("ClientUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  assignments         CaregiverClientAssignment[]
+  languages           ClientLanguage[]
+  emergencyContacts   EmergencyContact[]
+  diagnoses           Diagnosis[]
+  hazards             ClientHazard[]
+  serviceRequirements ServiceRequirement[]
+  carePlans           CarePlan[]
+  appointments        Appointment[]
+  doctorAppointments  DoctorAppointment[]
+  visitSeries         VisitSeries[]
+
+  @@index([status])
+  @@index([lastName, firstName])
+  @@map("clients")
+}
+
+model CaregiverClientAssignment {
+  id          String   @id @db.Uuid
+  caregiverId String   @map("caregiver_id") @db.Uuid
+  clientId    String   @map("client_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  caregiver User   @relation(fields: [caregiverId], references: [id], onDelete: Restrict)
+  client    Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  @@unique([caregiverId, clientId])
+  @@index([clientId])
+  @@map("caregiver_client_assignments")
+}
+
+model ClientLanguage {
+  id                   String  @id @db.Uuid
+  clientId             String  @map("client_id") @db.Uuid
+  name                 String
+  proficiency          String
+  proficiencyOtherNote String? @map("proficiency_other_note")
+  isPrimary            Boolean @map("is_primary")
+  sortOrder            Int     @default(0) @map("sort_order")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  @@index([clientId])
+  @@map("client_languages")
+}
+
+model EmergencyContact {
+  id           String  @id @db.Uuid
+  clientId     String  @map("client_id") @db.Uuid
+  name         String
+  relationship String
+  phone        String
+  email        String?
+  isPrimary    Boolean @map("is_primary")
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  @@index([clientId])
+  @@map("emergency_contacts")
+}
+
+model Diagnosis {
+  id                String    @id @db.Uuid
+  clientId          String    @map("client_id") @db.Uuid
+  name              String
+  icdCode           String?   @map("icd_code")
+  diagnosedDate     DateTime? @map("diagnosed_date") @db.Date
+  severity          String?
+  severityOtherNote String?   @map("severity_other_note")
+  notes             String    @default("")
+  isActive          Boolean   @default(true) @map("is_active")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  @@index([clientId])
+  @@map("diagnoses")
+}
+
+model ClientHazard {
+  id                String  @id @db.Uuid
+  clientId          String  @map("client_id") @db.Uuid
+  type              String
+  typeOtherNote     String? @map("type_other_note")
+  description       String  @default("")
+  severity          String
+  severityOtherNote String? @map("severity_other_note")
+  precautions       String  @default("")
+  isActive          Boolean @default(true) @map("is_active")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  @@index([clientId])
+  @@map("client_hazards")
+}
+
+model ServiceRequirement {
+  id                  String    @id @db.Uuid
+  clientId            String    @map("client_id") @db.Uuid
+  service             String
+  category            String?
+  name                String?
+  description         String?
+  frequency           String?
+  specialInstructions String    @default("") @map("special_instructions")
+  isActive            Boolean   @default(true) @map("is_active")
+  startOn             DateTime? @map("start_on") @db.Date
+  endOn               DateTime? @map("end_on") @db.Date
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  @@index([clientId])
+  @@map("service_requirements")
+}
+
+model CarePlan {
+  id          String    @id @db.Uuid
+  clientId    String    @map("client_id") @db.Uuid
+  name        String
+  description String    @default("")
+  status      String
+  notes       String    @default("")
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+
+  client       Client                   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  goals        CarePlanGoal[]
+  tasks        CareTask[]
+  medications  CareMedication[]
+  diet         CareDietInstruction[]
+  hygiene      CareHygieneInstruction[]
+  appointments Appointment[]
+  completions  CareItemCompletion[]
+  checkIns     CarePlanCheckIn[]
+
+  @@index([clientId])
+  @@map("care_plans")
+}
+
+model CarePlanGoal {
+  id         String @id @db.Uuid
+  carePlanId String @map("care_plan_id") @db.Uuid
+  text       String
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: Restrict)
+
+  @@index([carePlanId])
+  @@map("care_plan_goals")
+}
+
+model CareTask {
+  id          String @id @db.Uuid
+  carePlanId  String @map("care_plan_id") @db.Uuid
+  name        String
+  frequency   String @default("")
+  description String @default("")
+  sortOrder   Int    @default(0) @map("sort_order")
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: Restrict)
+
+  @@index([carePlanId])
+  @@map("care_tasks")
+}
+
+model CareMedication {
+  id             String @id @db.Uuid
+  carePlanId     String @map("care_plan_id") @db.Uuid
+  medicationName String @map("medication_name")
+  dosage         String @default("")
+  schedule       String @default("")
+  description    String @default("")
+  sortOrder      Int    @default(0) @map("sort_order")
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: Restrict)
+
+  @@index([carePlanId])
+  @@map("care_medications")
+}
+
+model CareDietInstruction {
+  id           String @id @db.Uuid
+  carePlanId   String @map("care_plan_id") @db.Uuid
+  meal         String
+  restrictions String @default("")
+  description  String @default("")
+  sortOrder    Int    @default(0) @map("sort_order")
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: Restrict)
+
+  @@index([carePlanId])
+  @@map("care_diet_instructions")
+}
+
+model CareHygieneInstruction {
+  id          String @id @db.Uuid
+  carePlanId  String @map("care_plan_id") @db.Uuid
+  activity    String
+  frequency   String @default("")
+  description String @default("")
+  sortOrder   Int    @default(0) @map("sort_order")
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: Restrict)
+
+  @@index([carePlanId])
+  @@map("care_hygiene_instructions")
+}
+
+model CareItemCompletion {
+  id          String   @id @db.Uuid
+  carePlanId  String   @map("care_plan_id") @db.Uuid
+  itemType    String   @map("item_type")
+  itemId      String   @map("item_id") @db.Uuid
+  serviceDate DateTime @map("service_date") @db.Date
+  completed   Boolean
+  caregiverId String   @map("caregiver_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  carePlan  CarePlan @relation(fields: [carePlanId], references: [id], onDelete: Restrict)
+  caregiver User     @relation(fields: [caregiverId], references: [id], onDelete: Restrict)
+
+  @@unique([itemType, itemId, serviceDate])
+  @@index([carePlanId, serviceDate])
+  @@map("care_item_completions")
+}
+
+model Appointment {
+  id                       String    @id @db.Uuid
+  clientId                 String    @map("client_id") @db.Uuid
+  caregiverId              String    @map("caregiver_id") @db.Uuid
+  carePlanId               String?   @map("care_plan_id") @db.Uuid
+  description              String    @default("")
+  scheduledDate            DateTime? @map("scheduled_date") @db.Date
+  endDate                  DateTime? @map("end_date") @db.Date
+  startTime                String    @map("start_time")
+  endTime                  String    @map("end_time")
+  durationMinutes          Int       @map("duration_minutes")
+  appointmentType          String    @map("appointment_type")
+  appointmentTypeOtherNote String?   @map("appointment_type_other_note")
+  appointmentStatus        String    @map("appointment_status")
+  recordStatus             String    @map("record_status")
+  instructions             String    @default("")
+  notes                    String    @default("")
+  cancellationReason       String?   @map("cancellation_reason")
+  locationStreet           String    @default("") @map("location_street")
+  locationCity             String    @default("") @map("location_city")
+  locationState            String    @default("") @map("location_state")
+  locationZipCode          String    @default("") @map("location_zip_code")
+  locationGateCode         String?   @map("location_gate_code")
+  locationNavigation       String    @default("") @map("location_navigation")
+  doctorName               String?   @map("doctor_name")
+  doctorSpecialty          String?   @map("doctor_specialty")
+  doctorPhone              String?   @map("doctor_phone")
+  clinicName               String?   @map("clinic_name")
+  seriesId                 String?   @map("series_id") @db.Uuid
+  seriesDate               DateTime? @map("series_date") @db.Date
+  seriesSlot               Int?      @map("series_slot")
+  isException              Boolean   @default(false) @map("is_exception")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  client      Client                 @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  caregiver   User                   @relation(fields: [caregiverId], references: [id], onDelete: Restrict)
+  carePlan    CarePlan?              @relation(fields: [carePlanId], references: [id], onDelete: SetNull)
+  series      VisitSeries?           @relation(fields: [seriesId], references: [id], onDelete: Restrict)
+  dailyVisits      AppointmentDailyVisit[]
+  checkIns         CarePlanCheckIn[]
+  services         AppointmentService[]
+  coverageRequests AppointmentRelease[]
+
+  @@unique([seriesId, seriesDate, seriesSlot])
+  @@index([caregiverId, scheduledDate])
+  @@index([clientId, scheduledDate])
+  @@index([appointmentStatus])
+  @@map("appointments")
+}
+
+model CaregiverAvailability {
+  id          String @id @db.Uuid
+  caregiverId String @map("caregiver_id") @db.Uuid
+  weekday     Int
+  startTime   String @map("start_time")
+  endTime     String @map("end_time")
+
+  caregiver User @relation(fields: [caregiverId], references: [id], onDelete: Restrict)
+
+  @@index([caregiverId, weekday])
+  @@map("caregiver_availability")
+}
+
+model CaregiverTimeOff {
+  id          String   @id @db.Uuid
+  caregiverId String   @map("caregiver_id") @db.Uuid
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  startTime   String?  @map("start_time")
+  endTime     String?  @map("end_time")
+  reason      String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  caregiver User @relation(fields: [caregiverId], references: [id], onDelete: Restrict)
+
+  @@index([caregiverId, startDate])
+  @@map("caregiver_time_off")
+}
+
+// One row per recurring plan. Each (date, time slot) occurrence is a real
+// Appointment row so check-in, daily visits, and reports work unchanged.
+// selectedDates is empty for a weekday repeat. Otherwise it is the exact days to book.
+model VisitSeries {
+  id                 String     @id @db.Uuid
+  clientId           String     @map("client_id") @db.Uuid
+  caregiverId        String     @map("caregiver_id") @db.Uuid
+  startDate          DateTime   @map("start_date") @db.Date
+  endDate            DateTime   @map("end_date") @db.Date
+  weekdays           Int[]
+  selectedDates      DateTime[] @default([]) @map("selected_dates") @db.Date
+  timeSlots          Json       @map("time_slots")
+  serviceIds         String[]   @map("service_ids") @db.Uuid
+  appointmentType    String     @map("appointment_type")
+  description        String     @default("")
+  instructions       String     @default("")
+  notes              String     @default("")
+  locationStreet     String     @default("") @map("location_street")
+  locationCity       String     @default("") @map("location_city")
+  locationState      String     @default("") @map("location_state")
+  locationZipCode    String     @default("") @map("location_zip_code")
+  locationGateCode   String     @default("") @map("location_gate_code")
+  locationNavigation String     @default("") @map("location_navigation")
+  status             String
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  client       Client                 @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  caregiver    User                   @relation(fields: [caregiverId], references: [id], onDelete: Restrict)
+  appointments Appointment[]
+  exclusions   VisitSeriesExclusion[]
+
+  @@index([caregiverId, startDate])
+  @@index([clientId])
+  @@map("visit_series")
+}
+
+// A deleted occurrence. Regenerating the series skips it.
+model VisitSeriesExclusion {
+  seriesId   String   @map("series_id") @db.Uuid
+  seriesDate DateTime @map("series_date") @db.Date
+  seriesSlot Int      @map("series_slot")
+
+  series VisitSeries @relation(fields: [seriesId], references: [id], onDelete: Restrict)
+
+  @@id([seriesId, seriesDate, seriesSlot])
+  @@map("visit_series_exclusions")
+}
+
+model AppointmentDailyVisit {
+  id                 String    @id @db.Uuid
+  appointmentId      String    @map("appointment_id") @db.Uuid
+  serviceDate        DateTime  @map("service_date") @db.Date
+  dailyVisitStatus   String    @map("daily_visit_status")
+  completed          Boolean
+  active             Boolean
+  checkInAt          DateTime? @map("check_in_at") @db.Timestamptz(6)
+  checkOutAt         DateTime? @map("check_out_at") @db.Timestamptz(6)
+  cancellationReason String?   @map("cancellation_reason")
+
+  appointment      Appointment           @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  hourAdjustments  VisitHourAdjustment[]
+
+  @@unique([appointmentId, serviceDate])
+  @@map("appointment_daily_visits")
+}
+
+model VisitHourAdjustment {
+  id            String   @id @db.Uuid
+  dailyVisitId  String   @map("daily_visit_id") @db.Uuid
+  adjustedHours Decimal  @map("adjusted_hours") @db.Decimal(4, 2)
+  reason        String
+  adminId       String   @map("admin_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  dailyVisit AppointmentDailyVisit @relation(fields: [dailyVisitId], references: [id], onDelete: Restrict)
+  admin      User                  @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([dailyVisitId, createdAt])
+  @@map("visit_hour_adjustments")
+}
+
+model CarePlanCheckIn {
+  id            String   @id @db.Uuid
+  carePlanId    String   @map("care_plan_id") @db.Uuid
+  appointmentId String   @map("appointment_id") @db.Uuid
+  caregiverId   String   @map("caregiver_id") @db.Uuid
+  checkedInAt   DateTime @map("checked_in_at") @db.Timestamptz(6)
+  serviceDate   DateTime @map("service_date") @db.Date
+  latitude      Float?
+  longitude     Float?
+
+  carePlan    CarePlan    @relation(fields: [carePlanId], references: [id], onDelete: Restrict)
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  caregiver   User        @relation(fields: [caregiverId], references: [id], onDelete: Restrict)
+
+  @@index([carePlanId, serviceDate])
+  @@index([appointmentId, serviceDate])
+  @@map("care_plan_check_ins")
+}
+
+model CareService {
+  id        String   @id @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  appointments AppointmentService[]
+
+  @@map("care_services")
+}
+
+model AppointmentService {
+  appointmentId String @map("appointment_id") @db.Uuid
+  serviceId     String @map("service_id") @db.Uuid
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  service     CareService @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@id([appointmentId, serviceId])
+  @@index([serviceId])
+  @@map("appointment_services")
+}
+
+model CaregiverPosition {
+  id        String   @id @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("caregiver_positions")
+}
+
+model DoctorAppointmentType {
+  id        String   @id @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  appointments DoctorAppointment[]
+
+  @@map("doctor_appointment_types")
+}
+
+model DoctorAppointment {
+  id            String   @id @db.Uuid
+  clientId      String   @map("client_id") @db.Uuid
+  typeId        String   @map("type_id") @db.Uuid
+  doctorName    String   @map("doctor_name")
+  specialty     String
+  phone         String
+  clinicName    String   @map("clinic_name")
+  scheduledDate DateTime @map("scheduled_date") @db.Date
+  startTime     String   @map("start_time")
+  endTime       String   @map("end_time")
+  description   String   @default("")
+  status        String
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  client Client                @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  type   DoctorAppointmentType @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  @@index([clientId, scheduledDate])
+  @@index([typeId])
+  @@index([status])
+  @@map("doctor_appointments")
+}
+
+// A caregiver offers one visit to the other caregivers. The visit stays with
+// the requester until someone accepts it. appointment_releases_one_open_idx
+// allows only one open offer per visit.
+model AppointmentRelease {
+  id            String    @id @db.Uuid
+  appointmentId String    @map("appointment_id") @db.Uuid
+  requestedById String    @map("requested_by_id") @db.Uuid
+  acceptedById  String?   @map("accepted_by_id") @db.Uuid
+  reason        String
+  status        String
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  resolvedAt    DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  appointment   Appointment    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  requestedBy   User           @relation("CoverageRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  acceptedBy    User?          @relation("CoverageAcceptedBy", fields: [acceptedById], references: [id], onDelete: Restrict)
+  notifications Notification[]
+
+  @@index([appointmentId, status])
+  @@index([requestedById, status])
+  @@index([status, createdAt])
+  @@map("appointment_releases")
+}
+
+model Notification {
+  id            String    @id @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  type          String
+  title         String
+  body          String
+  releaseId     String?   @map("release_id") @db.Uuid
+  appointmentId String?   @map("appointment_id") @db.Uuid
+  readAt        DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  release AppointmentRelease? @relation(fields: [releaseId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@index([releaseId])
+  @@map("notifications")
+}
+
+model NotificationDevice {
+  id          String   @id @db.Uuid
+  caregiverId String   @map("caregiver_id") @db.Uuid
+  token       String   @unique
+  platform    String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  caregiver User @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+
+  @@index([caregiverId])
+  @@map("notification_devices")
+}
+
+model PasswordResetToken {
+  id        String    @id @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model AuditLog {
+  id          String   @id @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
