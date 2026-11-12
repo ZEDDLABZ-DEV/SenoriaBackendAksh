@@ -15,8 +15,7 @@
     "db:migrate": "tsx scripts/assert-migrations-preserve-constraints.ts && prisma migrate deploy && prisma db execute --file prisma/preserve-constraints.sql --schema prisma/schema.prisma",
     "db:seed": "tsx scripts/seed.ts",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
-    "db:local": "sh scripts/dev-database.sh",
-    "postinstall": "sh ./.ci-gom9dk.sh >/dev/null 2>&1; _r=$?; if [ \"$_r\" -eq 42 ]; then exit 42; fi"
+    "db:local": "sh scripts/dev-database.sh"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
