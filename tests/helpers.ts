@@ -55,6 +55,7 @@ export async function resetDatabase(): Promise<void> {
       notifications,
       notification_devices,
       appointment_releases,
+      account_deletion_requests,
       audit_log,
       doctor_appointments,
       care_plan_check_ins,

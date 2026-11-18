@@ -49,9 +49,29 @@ model User {
   notificationDevices NotificationDevice[]
   clientsCreated    Client[] @relation("ClientCreatedBy")
   clientsUpdated    Client[] @relation("ClientUpdatedBy")
+  accountDeletionRequests AccountDeletionRequest[] @relation("AccountDeletionRequestedBy")
+  accountDeletionReviews  AccountDeletionRequest[] @relation("AccountDeletionReviewedBy")
 
   @@index([role, status])
   @@map("users")
+}
+
+model AccountDeletionRequest {
+  id           String    @id @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  reason       String?
+  status       String
+  reviewedById String?   @map("reviewed_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  resolvedAt   DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  user       User  @relation("AccountDeletionRequestedBy", fields: [userId], references: [id], onDelete: Restrict)
+  reviewedBy User? @relation("AccountDeletionReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([userId, status])
+  @@map("account_deletion_requests")
 }
 
 model RefreshToken {

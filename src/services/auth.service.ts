@@ -1,7 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { now } from "../lib/clock";
-import { invalidCredentials, refreshExpired, forbidden, unauthenticated, notFound, validation } from "../lib/errors";
+import {
+  accountDeletionPending,
+  invalidCredentials,
+  refreshExpired,
+  forbidden,
+  unauthenticated,
+  notFound,
+  validation,
+} from "../lib/errors";
 import { prisma } from "../lib/prisma";
 import { hashPassword, verifyPassword } from "../lib/password";
 import { lockUser, lockUserRefreshTokens } from "../lib/rowLock";
@@ -91,6 +99,9 @@ export async function login(input: { email: string; password: string }) {
     user?.passwordHash ?? (await dummyHash()),
     input.password,
   );
+  if (user && passwordMatches && user.status === "deletion_pending" && isAccountRole(user.role)) {
+    throw accountDeletionPending();
+  }
   if (!user || !passwordMatches || user.status !== "active" || !isAccountRole(user.role)) {
     throw invalidCredentials();
   }

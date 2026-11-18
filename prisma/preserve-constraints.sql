@@ -10,7 +10,7 @@ BEGIN
     ALTER TABLE "users" ADD CONSTRAINT "users_role_check" CHECK ("role" IN ('CAREGIVER', 'ADMIN'));
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_status_check') THEN
-    ALTER TABLE "users" ADD CONSTRAINT "users_status_check" CHECK ("status" IN ('active', 'inactive'));
+    ALTER TABLE "users" ADD CONSTRAINT "users_status_check" CHECK ("status" IN ('active', 'inactive', 'deletion_pending'));
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clients_gender_check') THEN
     ALTER TABLE "clients" ADD CONSTRAINT "clients_gender_check" CHECK ("gender" IN ('female', 'male', 'other'));
@@ -97,6 +97,19 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'notification_devices_platform_check') THEN
     ALTER TABLE "notification_devices" ADD CONSTRAINT "notification_devices_platform_check" CHECK ("platform" IN ('ios', 'android'));
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'account_deletion_requests_status_check') THEN
+    ALTER TABLE "account_deletion_requests" ADD CONSTRAINT "account_deletion_requests_status_check" CHECK ("status" IN ('pending', 'approved', 'rejected'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'account_deletion_requests_reason_check') THEN
+    ALTER TABLE "account_deletion_requests" ADD CONSTRAINT "account_deletion_requests_reason_check" CHECK ("reason" IS NULL OR length(btrim("reason")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'account_deletion_requests_state_check') THEN
+    ALTER TABLE "account_deletion_requests" ADD CONSTRAINT "account_deletion_requests_state_check" CHECK (
+      ("status" = 'pending' AND "reviewed_by_id" IS NULL AND "resolved_at" IS NULL)
+      OR ("status" IN ('approved', 'rejected') AND "reviewed_by_id" IS NOT NULL AND "resolved_at" IS NOT NULL)
+    );
+  END IF;
 END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "appointment_releases_one_open_idx" ON "appointment_releases" ("appointment_id") WHERE "status" = 'open';
+CREATE UNIQUE INDEX IF NOT EXISTS "account_deletion_requests_one_pending_idx" ON "account_deletion_requests" ("user_id") WHERE "status" = 'pending';

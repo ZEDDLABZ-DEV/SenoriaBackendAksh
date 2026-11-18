@@ -4,6 +4,12 @@ import { getRequestContext } from "../http/requestContext";
 import { errorBody, sendData } from "../http/respond";
 import { requireRoles } from "../middleware/auth";
 import { timezoneMiddleware } from "../middleware/timezone";
+import {
+  approveAccountDeletion,
+  listAccountDeletionRequests,
+  rejectAccountDeletion,
+  requestAccountDeletion,
+} from "../services/accountDeletion.service";
 import { forgotPassword, login, loginAdmin, logout, refreshSession, resetPassword } from "../services/auth.service";
 import { cancelAppointment, completeDay, getAppointment, listAppointments } from "../services/appointment.service";
 import {
@@ -92,6 +98,7 @@ import {
   parseDoctorListQuery,
   parseUpdateDoctorAppointment,
 } from "../validation/doctorAppointments";
+import { parseAccountDeletionRequest, parseDeletionRequestStatus } from "../validation/accountDeletion";
 import { parseCaregiverPassword, parseCreateCaregiver, parseForgotPassword, parseLogin, parsePosition, parseRefresh, parseResetPassword } from "../validation/auth";
 import {
   parseCreateCarePlan,
@@ -201,6 +208,48 @@ apiRouter.post(
     const context = getRequestContext(req);
     await logout(context.user.id);
     sendData(res, null, "Signed out");
+  }),
+);
+
+apiRouter.post(
+  "/auth/account-deletion",
+  caregiver,
+  asyncHandler(async (req, res) => {
+    const context = getRequestContext(req);
+    const body = parseAccountDeletionRequest(req.body);
+    const data = await requestAccountDeletion(context.user.id, body.reason);
+    sendData(res, data, "Account deletion request submitted");
+  }),
+);
+
+apiRouter.get(
+  "/account-deletion-requests",
+  admin,
+  asyncHandler(async (req, res) => {
+    const query = parsePageQuery(req.query as Record<string, unknown>, 50);
+    const status = parseDeletionRequestStatus(req.query as Record<string, unknown>);
+    const data = await listAccountDeletionRequests(query, status);
+    sendData(res, data, "ok");
+  }),
+);
+
+apiRouter.post(
+  "/account-deletion-requests/:id/approve",
+  admin,
+  asyncHandler(async (req, res) => {
+    const context = getRequestContext(req);
+    const data = await approveAccountDeletion(req.params.id, context.user.id);
+    sendData(res, data, "Account deletion approved");
+  }),
+);
+
+apiRouter.post(
+  "/account-deletion-requests/:id/reject",
+  admin,
+  asyncHandler(async (req, res) => {
+    const context = getRequestContext(req);
+    const data = await rejectAccountDeletion(req.params.id, context.user.id);
+    sendData(res, data, "Account deletion rejected");
   }),
 );
 
@@ -912,7 +961,8 @@ apiRouter.post(
   "/users/caregivers/:id/deactivate",
   admin,
   asyncHandler(async (req, res) => {
-    const data = await deactivateCaregiver(req.params.id);
+    const context = getRequestContext(req);
+    const data = await deactivateCaregiver(req.params.id, context.user.id);
     sendData(res, data, "Caregiver deactivated");
   }),
 );

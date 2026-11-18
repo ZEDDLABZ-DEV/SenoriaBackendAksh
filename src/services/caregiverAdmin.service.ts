@@ -5,6 +5,7 @@ import { notFound, validation } from "../lib/errors";
 import { hashPassword } from "../lib/password";
 import { prisma } from "../lib/prisma";
 import { pageMeta, type PageQuery } from "../validation/common";
+import { closePendingDeletionOnDeactivate } from "./accountDeletion.service";
 import { invalidateUserSessions, logout } from "./auth.service";
 
 function publicCaregiver(user: {
@@ -87,15 +88,20 @@ export async function createCaregiver(input: {
   }
 }
 
-export async function deactivateCaregiver(id: string) {
+export async function deactivateCaregiver(id: string, adminId?: string) {
   assertUuid(id);
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user || user.role !== "CAREGIVER") {
     throw notFound();
   }
-  const updated = await prisma.user.update({
-    where: { id },
-    data: { status: "inactive" },
+  const updated = await prisma.$transaction(async (tx) => {
+    if (adminId) {
+      await closePendingDeletionOnDeactivate(tx, id, adminId);
+    }
+    return tx.user.update({
+      where: { id },
+      data: { status: "inactive" },
+    });
   });
   await logout(id);
   return publicCaregiver(updated);

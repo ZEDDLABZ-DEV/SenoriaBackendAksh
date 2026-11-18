@@ -36,6 +36,14 @@ export function invalidCredentials(): AppError {
   return new AppError(401, "Invalid email or password", "INVALID_CREDENTIALS");
 }
 
+export function accountDeletionPending(): AppError {
+  return new AppError(
+    403,
+    "Your account deletion request is pending admin approval. You cannot log in until it is processed.",
+    "ACCOUNT_DELETION_PENDING",
+  );
+}
+
 export function roleNotAllowed(): AppError {
   return new AppError(403, "This account cannot use the caregiver app", "ROLE_NOT_ALLOWED");
 }

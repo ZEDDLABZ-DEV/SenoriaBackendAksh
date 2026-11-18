@@ -37,6 +37,10 @@ const protectedNames = [
   "appointment_releases_state_check",
   "appointment_releases_one_open_idx",
   "notification_devices_platform_check",
+  "account_deletion_requests_status_check",
+  "account_deletion_requests_reason_check",
+  "account_deletion_requests_state_check",
+  "account_deletion_requests_one_pending_idx",
 ];
 
 const dropPattern =
