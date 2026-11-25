@@ -5,7 +5,7 @@ import { asyncHandler } from "../http/asyncHandler";
 import { attachUser } from "../http/requestContext";
 import { AppError, forbidden, unauthenticated } from "../lib/errors";
 import { prisma } from "../lib/prisma";
-import { verifyAccessToken, type UserRole } from "../lib/tokens";
+import { isUserRole, verifyAccessToken, type UserRole } from "../lib/tokens";
 
 export function requireRoles(roles: UserRole[]) {
   return asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
@@ -23,7 +23,13 @@ export function requireRoles(roles: UserRole[]) {
       if (!user || user.status !== "active") {
         throw unauthenticated();
       }
-      if (user.role !== "CAREGIVER" && user.role !== "ADMIN") {
+      if (!isUserRole(user.role)) {
+        throw unauthenticated();
+      }
+      if (
+        claims.sessionVersion !== undefined &&
+        claims.sessionVersion !== user.sessionVersion
+      ) {
         throw unauthenticated();
       }
       if (!roles.includes(user.role)) {

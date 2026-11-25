@@ -1,5 +1,6 @@
 import { createApp } from "./app";
 import { config } from "./config";
+import { getIntegrationStatus } from "./integrations/status";
 import { logInfo } from "./lib/logger";
 import { prisma } from "./lib/prisma";
 import {
@@ -10,6 +11,7 @@ import {
 const app = createApp();
 const server = app.listen(config.port, () => {
   logInfo("api listening", { port: config.port });
+  getIntegrationStatus();
   startAppointmentReminderScheduler();
 });
 

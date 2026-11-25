@@ -1,6 +1,8 @@
+import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { adminNoteForOther, parseAppointmentType, parseGender, parseHazardType, parseProficiency, parseSeverity } from "../src/domain/enums";
 import { calendarDateInTimeZone } from "../src/lib/timezone";
+import { seedSalesWorkspace } from "./seed-sales";
 import { addDays } from "../src/lib/dates";
 import { prisma } from "../src/lib/prisma";
 import { hashPassword } from "../src/lib/password";
@@ -32,6 +34,7 @@ async function main(): Promise<void> {
 
   const today = calendarDateInTimeZone(new Date(), "America/Vancouver");
   const passwordHash = await hashPassword(password);
+  await seedSalesWorkspace();
   const caregiver = await prisma.user.upsert({
     where: { email },
     update: {

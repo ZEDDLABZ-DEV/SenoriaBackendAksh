@@ -27,7 +27,7 @@ export const PROFICIENCY_VALUES = ["native", "fluent", "intermediate", "basic", 
 export const RECORD_STATUS_VALUES = ["active", "inactive"] as const;
 export const APPOINTMENT_STATUS_VALUES = ["scheduled", "completed", "cancelled"] as const;
 export const ITEM_TYPE_VALUES = ["task", "medication", "diet", "hygiene"] as const;
-export const USER_ROLE_VALUES = ["CAREGIVER", "ADMIN"] as const;
+export const USER_ROLE_VALUES = ["CAREGIVER", "ADMIN", "SALES"] as const;
 
 export type Gender = (typeof GENDER_VALUES)[number];
 export type AppointmentType = (typeof APPOINTMENT_TYPE_VALUES)[number];

@@ -198,4 +198,28 @@ describe("access tokens", () => {
     const missingAdmin = await request(app).get("/api/v1/admin/dashboard");
     expect(missingAdmin.status).toBe(401);
   });
+
+  it("accepts an access token without a session version and rejects a stale one", async () => {
+    const caregiver = await createUser({ email: "legacy-token@example.com" });
+    const legacy = jwt.sign({}, process.env.JWT_SECRET!, {
+      subject: caregiver.id,
+      expiresIn: "1h",
+      algorithm: "HS256",
+    });
+    const allowed = await request(app)
+      .get(`/api/v1/appointments/caregiver/${caregiver.id}`)
+      .set(auth(legacy));
+    expect(allowed.status).toBe(200);
+
+    const stale = jwt.sign({ sv: 4 }, process.env.JWT_SECRET!, {
+      subject: caregiver.id,
+      expiresIn: "1h",
+      algorithm: "HS256",
+    });
+    const rejected = await request(app)
+      .get(`/api/v1/appointments/caregiver/${caregiver.id}`)
+      .set(auth(stale));
+    expect(rejected.status).toBe(401);
+    expect(rejected.body.code).toBe("UNAUTHENTICATED");
+  });
 });

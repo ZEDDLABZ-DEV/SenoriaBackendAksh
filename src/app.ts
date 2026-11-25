@@ -1,5 +1,5 @@
 import cors from "cors";
-import express from "express";
+import express, { type Request } from "express";
 import { config } from "./config";
 import { asyncHandler } from "./http/asyncHandler";
 import { logInfo } from "./lib/logger";
@@ -16,7 +16,18 @@ export function createApp() {
       credentials: false,
     }),
   );
-  app.use(express.json({ limit: "1mb" }));
+  app.use(
+    express.json({
+      limit: "1mb",
+      verify(req, _res, buf) {
+        const path = (req.url || "").split("?")[0];
+        if (path === "/api/v1/webhooks/meta/leads") {
+          (req as Request & { rawBody?: Buffer }).rawBody = buf;
+        }
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: false, limit: "1mb" }));
   app.use((req, res, next) => {
     const started = Date.now();
     const path = req.originalUrl.split("?")[0];

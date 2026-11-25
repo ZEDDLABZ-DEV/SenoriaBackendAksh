@@ -19,6 +19,7 @@ import {
   generateOpaqueToken,
   hashRefreshToken,
   newFamilyId,
+  isUserRole,
   signAccessToken,
   type UserRole,
 } from "../lib/tokens";
@@ -55,10 +56,10 @@ function publicUser(user: {
 }
 
 function isAccountRole(role: string): role is UserRole {
-  return role === "CAREGIVER" || role === "ADMIN";
+  return isUserRole(role);
 }
 
-async function issueTokens(tx: Tx, userId: string, familyId = newFamilyId()) {
+async function issueTokens(tx: Tx, userId: string, sessionVersion: number, familyId = newFamilyId()) {
   const refreshToken = generateOpaqueToken();
   const current = now();
   await tx.refreshToken.create({
@@ -71,7 +72,7 @@ async function issueTokens(tx: Tx, userId: string, familyId = newFamilyId()) {
     },
   });
   return {
-    accessToken: signAccessToken({ userId }),
+    accessToken: signAccessToken({ userId, sessionVersion }),
     refreshToken,
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
   };
@@ -84,7 +85,7 @@ async function issueLoginSession(userId: string, passwordHash: string) {
     if (!fresh || fresh.passwordHash !== passwordHash || fresh.status !== "active" || !isAccountRole(fresh.role)) {
       throw invalidCredentials();
     }
-    const tokens = await issueTokens(tx, fresh.id);
+    const tokens = await issueTokens(tx, fresh.id, fresh.sessionVersion);
     return {
       user: publicUser(fresh),
       ...tokens,
@@ -146,7 +147,7 @@ export async function refreshSession(rawToken: string) {
   }
 
   return {
-    accessToken: signAccessToken({ userId: freshUser.id }),
+    accessToken: signAccessToken({ userId: freshUser.id, sessionVersion: freshUser.sessionVersion }),
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
   };
 }

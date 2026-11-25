@@ -31,9 +31,9 @@ Base path: `/api/v1`. JSON is camelCase. Success bodies use `{ success, message,
 
 | Method | Path | Who | Change |
 | --- | --- | --- | --- |
-| POST | `/auth/login` | public | Already present. Role in the body is ignored. Returns the stored role inside `data`, with `expiresIn: 3600`. ADMIN and CAREGIVER both use this path. |
+| POST | `/auth/login` | public | Already present. Role in the body is ignored. Returns the stored role inside `data`, with `expiresIn: 3600`. ADMIN, CAREGIVER, and SALES use this path. |
 | POST | `/auth/refresh` | public | Already present. Returns a new access token and `expiresIn: 3600`. Omits `refreshToken`. The refresh token is not rotated. |
-| POST | `/auth/logout` | CAREGIVER or ADMIN | Already present. Revokes that account's refresh tokens. |
+| POST | `/auth/logout` | CAREGIVER, ADMIN, or SALES | Already present. Revokes that account's refresh tokens. |
 | GET | `/clients/{id}` | CAREGIVER (assigned) or ADMIN | Already present. Caregiver fields kept. Adds `serviceRequirements`. |
 | GET | `/appointments/{id}` | CAREGIVER (owner) or ADMIN | Already present. Caregiver fields kept. Adds `tasks` from the client's care plan. `status` remains the record status. |
 | PUT | `/appointments/{id}` | CAREGIVER or ADMIN | Already present. Caregiver body `{ appointmentStatus: "cancelled" }` changes status only. Admin body is a merge and can set schedule, caregiver, type, notes, location, status, and `serviceIds`. |
@@ -91,6 +91,11 @@ All of these require an access token whose account role is ADMIN.
 | POST | `/users/caregivers` | added |
 | POST | `/users/caregivers/{id}/deactivate` | added |
 | POST | `/users/caregivers/{id}/password` | added. Admin sets a caregiver password. Signs that caregiver out. |
+| GET | `/users/sales` | added. Sales accounts, active and inactive. Optional `status`: `all` (default), `active`, or `inactive`. Each row includes `status`. |
+| POST | `/users/sales` | added. Body: `firstName`, `lastName`, `dateOfBirth`, `email`, `password`, `phone`. |
+| POST | `/users/sales/{id}/deactivate` | added. Marks the account inactive and ends its sessions. |
+| POST | `/users/sales/{id}/password` | added. Admin sets a sales password and ends its sessions. |
+| POST | `/users/sales/{id}/sessions/revoke` | added. Ends current sessions and leaves the account active. |
 | GET | `/caregiver-positions` | added. Caregiver type dropdown. |
 | POST | `/caregiver-positions` | added |
 | PUT | `/caregiver-positions/{id}` | added. Renaming updates caregivers who use that type. |
@@ -102,6 +107,26 @@ All of these require an access token whose account role is ADMIN.
 | GET | `/admin/reports/visits` | added. Visit report. Query: `period` (`daily`, `weekly`, `monthly`, `custom`), `date`, `from`, `to`, `caregiverId`, `clientId`, `status` (`completed`, `pending`, `missed`, `cancelled`, `all`), `page`, `pageSize`. |
 | GET | `/admin/reports/visits/export.pdf` | added. Same filters as the visit report. Returns `application/pdf`. |
 | POST | `/admin/reports/visits/{dailyVisitId}/hours` | added. Appends an admin hour correction for one completed day. Body: `adjustedHours`, `reason`. |
+
+## Integrations
+
+| Method | Path | Who | Notes |
+| --- | --- | --- | --- |
+| GET | `/integrations/status` | ADMIN or SALES | Each of `meta`, `ringcentral`, `zoho`, and `outlook` is `{ enabled, configured }`. With flags off and secrets empty, every vendor is disabled. See `docs/INTEGRATIONS.md`. |
+| GET | `/webhooks/meta/leads` | public | Meta hub challenge. Returns `hub.challenge` as text when `hub.verify_token` matches `META_WEBHOOK_VERIFY_TOKEN`. |
+| POST | `/webhooks/meta/leads` | public | Meta leadgen webhook. Verifies `X-Hub-Signature-256` with `META_APP_SECRET`. Creates a lead only when Meta is enabled. |
+| POST | `/webhooks/zoho/leads` | public | Zoho lead webhook. No bearer token. Requires `X-Zoho-Webhook-Secret`. Creates a lead only when `ZOHO_INBOUND_ENABLED=true`. |
+| POST | `/leads/{id}/calls/start` | ADMIN or owning SALES | RingCentral RingOut. When RingCentral is off, `200` with `data.started` false and `reason` `ringcentral_not_configured`. Does not log a call. See `docs/INTEGRATIONS.md`. |
+| POST | `/webhooks/ringcentral/calls` | public | RingCentral call-log webhook. Echoes `Validation-Token`. Writes a call only when RingCentral is enabled. |
+| POST | `/sales/meetings/{id}/outlook` | ADMIN or owning SALES | Pushes the meeting to the Outlook mailbox. When Outlook is off, `200` with `data.synced` false and `reason` `outlook_not_configured`. A Graph error stays `200` with `reason` `outlook_sync_failed` and does not remove the meeting. See `docs/INTEGRATIONS.md`. |
+
+## Sales
+
+Requires an access token whose account role is SALES. A sales token cannot call admin or caregiver routes. `POST /admin/auth/login` rejects a sales account.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/sales/dashboard` | The signed-in salesperson's profile: `id`, `firstName`, `lastName`, `dateOfBirth`, `email`, `phone`, `role`. |
 
 ## Caregiver schedule (ADMIN)
 

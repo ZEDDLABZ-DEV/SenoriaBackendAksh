@@ -1,7 +1,8 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { asyncHandler } from "../http/asyncHandler";
 import { getRequestContext } from "../http/requestContext";
 import { errorBody, sendData } from "../http/respond";
+import { forbidden } from "../lib/errors";
 import { requireRoles } from "../middleware/auth";
 import { timezoneMiddleware } from "../middleware/timezone";
 import {
@@ -88,6 +89,46 @@ import {
 } from "../services/clientWrite.service";
 import { createService, deleteService, listServices, updateService } from "../services/careService.service";
 import { dashboardStats } from "../services/dashboard.service";
+import { createCall, getCall, listCalls } from "../services/calls.service";
+import {
+  createMeeting,
+  deleteMeeting,
+  listMeetings,
+  pushMeetingOutlook,
+  updateMeeting,
+} from "../services/meetings.service";
+import {
+  addLeadNote,
+  assignLead,
+  assignmentState,
+  changeLeadStage,
+  createLead,
+  getLead,
+  listLeads,
+  queueSummary,
+  requestDayWindow,
+  updateLead,
+  type SalesActor,
+} from "../services/leads.service";
+import {
+  changeSalesPassword,
+  createSales,
+  deactivateSales,
+  listSales,
+  getSales,
+  revokeSalesSessions,
+  salesDashboard,
+} from "../services/sales.service";
+import { ingestMetaLeadgen } from "../integrations/meta/leads";
+import { ingestZohoLeads } from "../integrations/zoho/inbound";
+import { isZohoInboundEnabled, zohoWebhookAuthorized } from "../integrations/zoho/webhook";
+import { logIntegration } from "../integrations/log";
+import { metaChallenge, metaPostDecision } from "../integrations/meta/signature";
+import { ingestRingCentralCalls } from "../integrations/ringcentral/ingest";
+import { startLeadCall } from "../integrations/ringcentral/start";
+import { ringCentralPostDecision } from "../integrations/ringcentral/webhook";
+import { getIntegrationStatus, isIntegrationEnabled } from "../integrations/status";
+import { getSalesperson, listSalespeople } from "../services/salespeople.service";
 import { requireOwnedAppointment, requireOwnedCarePlan } from "../services/scope";
 import { parseCreateAppointment, parseCancel, parseDailyCompletion, parseUpdateAppointment } from "../validation/appointments";
 import { parseCoverageReason, parseUnreadQuery } from "../validation/coverage";
@@ -99,7 +140,19 @@ import {
   parseUpdateDoctorAppointment,
 } from "../validation/doctorAppointments";
 import { parseAccountDeletionRequest, parseDeletionRequestStatus } from "../validation/accountDeletion";
-import { parseCaregiverPassword, parseCreateCaregiver, parseForgotPassword, parseLogin, parsePosition, parseRefresh, parseResetPassword } from "../validation/auth";
+import { parseCaregiverPassword, parseCreateCaregiver, parseCreateSales, parseForgotPassword, parseLogin, parsePosition, parseRefresh, parseResetPassword, parseSalesListStatus } from "../validation/auth";
+import { parseCallListQuery, parseCreateCall } from "../validation/calls";
+import { parseCreateMeeting, parseMeetingRangeQuery, parseUpdateMeeting } from "../validation/meetings";
+import {
+  parseAssignLead,
+  parseCreateLead,
+  parseLeadListQuery,
+  parseLeadNote,
+  parseLeadStage,
+  parseOptionalTimeZoneOffset,
+  parseQueueSummaryQuery,
+  parseUpdateLead,
+} from "../validation/leads";
 import {
   parseCreateCarePlan,
   parseCreateDiet,
@@ -154,7 +207,78 @@ apiRouter.use(timezoneMiddleware);
 
 const caregiver = requireRoles(["CAREGIVER"]);
 const admin = requireRoles(["ADMIN"]);
+const sales = requireRoles(["SALES"]);
+const adminOrSales = requireRoles(["ADMIN", "SALES"]);
 const either = requireRoles(["CAREGIVER", "ADMIN"]);
+const signedIn = requireRoles(["CAREGIVER", "ADMIN", "SALES"]);
+
+apiRouter.get("/webhooks/meta/leads", (req, res) => {
+  const result = metaChallenge(req.query);
+  if (!result.ok) {
+    res.status(403).type("text/plain").send("Forbidden");
+    return;
+  }
+  res.status(200).type("text/plain").send(result.challenge);
+});
+
+apiRouter.post(
+  "/webhooks/meta/leads",
+  asyncHandler(async (req, res) => {
+    const decision = metaPostDecision(req);
+    if (decision === "reject") {
+      res.status(403).json({ received: false });
+      return;
+    }
+    if (decision === "ignore" || !isIntegrationEnabled("meta")) {
+      res.status(200).json({ received: true, results: [] });
+      return;
+    }
+    const results = await ingestMetaLeadgen(req.body);
+    res.status(200).json({ received: true, results });
+  }),
+);
+
+apiRouter.post(
+  "/webhooks/zoho/leads",
+  asyncHandler(async (req, res) => {
+    if (!zohoWebhookAuthorized(req.header("x-zoho-webhook-secret"))) {
+      res.status(403).json({ received: false });
+      return;
+    }
+    if (!isZohoInboundEnabled()) {
+      res.status(200).json({ received: true, results: [] });
+      return;
+    }
+    try {
+      const results = await ingestZohoLeads(req.body);
+      res.status(200).json({ received: true, results });
+    } catch {
+      logIntegration("failed", { integration: "zoho" });
+      res.status(200).json({ received: true, results: [] });
+    }
+  }),
+);
+
+apiRouter.post(
+  "/webhooks/ringcentral/calls",
+  asyncHandler(async (req, res) => {
+    const decision = ringCentralPostDecision(req);
+    if (decision.kind === "reject") {
+      res.status(403).json({ received: false });
+      return;
+    }
+    if (decision.kind === "validate") {
+      res.status(200).set("Validation-Token", decision.token).end();
+      return;
+    }
+    if (!isIntegrationEnabled("ringcentral")) {
+      res.status(200).json({ received: true, results: [] });
+      return;
+    }
+    const results = await ingestRingCentralCalls(req.body);
+    res.status(200).json({ received: true, results });
+  }),
+);
 
 apiRouter.post(
   "/auth/login",
@@ -203,7 +327,7 @@ apiRouter.post(
 
 apiRouter.post(
   "/auth/logout",
-  either,
+  signedIn,
   asyncHandler(async (req, res) => {
     const context = getRequestContext(req);
     await logout(context.user.id);
@@ -250,6 +374,270 @@ apiRouter.post(
     const context = getRequestContext(req);
     const data = await rejectAccountDeletion(req.params.id, context.user.id);
     sendData(res, data, "Account deletion rejected");
+  }),
+);
+
+apiRouter.get(
+  "/salespeople",
+  admin,
+  asyncHandler(async (req, res) => {
+    const status = parseSalesListStatus(req.query as Record<string, unknown>);
+    sendData(res, await listSalespeople(status), "ok");
+  }),
+);
+
+apiRouter.get(
+  "/salespeople/:id",
+  admin,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const context = getRequestContext(req);
+    const offset = parseOptionalTimeZoneOffset(req.query as Record<string, unknown>);
+    sendData(res, await getSalesperson(actor, req.params.id, context.timeZone, offset), "ok");
+  }),
+);
+
+apiRouter.get(
+  "/integrations/status",
+  adminOrSales,
+  asyncHandler(async (_req, res) => {
+    sendData(res, getIntegrationStatus(), "ok");
+  }),
+);
+
+apiRouter.get(
+  "/sales/dashboard",
+  sales,
+  asyncHandler(async (req, res) => {
+    const context = getRequestContext(req);
+    const data = await salesDashboard(context.user.id);
+    sendData(res, data, "ok");
+  }),
+);
+
+apiRouter.get(
+  "/sales/meetings",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const query = parseMeetingRangeQuery(req.query as Record<string, unknown>);
+    const context = getRequestContext(req);
+    sendData(res, await listMeetings(actor, query, context.timeZone), "ok");
+  }),
+);
+
+apiRouter.post(
+  "/sales/meetings",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const body = parseCreateMeeting(req.body);
+    sendData(res, await createMeeting(actor, body), "Meeting created", 201);
+  }),
+);
+
+apiRouter.patch(
+  "/sales/meetings/:id",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const body = parseUpdateMeeting(req.body);
+    sendData(res, await updateMeeting(actor, req.params.id, body), "Meeting updated");
+  }),
+);
+
+apiRouter.delete(
+  "/sales/meetings/:id",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    sendData(res, await deleteMeeting(actor, req.params.id), "Meeting deleted");
+  }),
+);
+
+apiRouter.post(
+  "/sales/meetings/:id/outlook",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const data = await pushMeetingOutlook(actor, req.params.id);
+    if (!data.synced) {
+      const message =
+        data.reason === "outlook_not_configured" ? "Outlook is not configured" : "Outlook did not save the event";
+      sendData(res, data, message);
+      return;
+    }
+    sendData(res, data, "Outlook event saved");
+  }),
+);
+
+apiRouter.get(
+  "/sales/assignment-state",
+  adminOrSales,
+  asyncHandler(async (_req, res) => {
+    sendData(res, await assignmentState(), "ok");
+  }),
+);
+
+apiRouter.get(
+  "/leads/queues/summary",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const query = parseQueueSummaryQuery(req.query as Record<string, unknown>);
+    const context = getRequestContext(req);
+    const data = await queueSummary(actor, requestDayWindow(context.timeZone, query.timeZoneOffset), query.ownerId);
+    sendData(res, data, "ok");
+  }),
+);
+
+apiRouter.get(
+  "/leads",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const query = parseLeadListQuery(req.query as Record<string, unknown>);
+    const context = getRequestContext(req);
+    const data = await listLeads(actor, query, requestDayWindow(context.timeZone, query.timeZoneOffset));
+    sendData(res, data, "ok");
+  }),
+);
+
+apiRouter.post(
+  "/leads",
+  admin,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const body = parseCreateLead(req.body);
+    const context = getRequestContext(req);
+    const offset = parseOptionalTimeZoneOffset(req.query as Record<string, unknown>);
+    const data = await createLead(actor, body, requestDayWindow(context.timeZone, offset));
+    sendData(res, data, "Lead created", 201);
+  }),
+);
+
+apiRouter.get(
+  "/leads/:id",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const context = getRequestContext(req);
+    const offset = parseOptionalTimeZoneOffset(req.query as Record<string, unknown>);
+    const data = await getLead(actor, req.params.id, requestDayWindow(context.timeZone, offset));
+    sendData(res, data, "ok");
+  }),
+);
+
+apiRouter.patch(
+  "/leads/:id",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const body = parseUpdateLead(req.body);
+    const context = getRequestContext(req);
+    const offset = parseOptionalTimeZoneOffset(req.query as Record<string, unknown>);
+    const data = await updateLead(actor, req.params.id, body, requestDayWindow(context.timeZone, offset));
+    sendData(res, data, "Lead updated");
+  }),
+);
+
+apiRouter.patch(
+  "/leads/:id/stage",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const body = parseLeadStage(req.body);
+    const context = getRequestContext(req);
+    const offset = parseOptionalTimeZoneOffset(req.query as Record<string, unknown>);
+    const data = await changeLeadStage(
+      actor,
+      req.params.id,
+      body.stage,
+      requestDayWindow(context.timeZone, offset),
+    );
+    sendData(res, data, "Stage updated");
+  }),
+);
+
+apiRouter.post(
+  "/leads/:id/assign",
+  admin,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const body = parseAssignLead(req.body);
+    const context = getRequestContext(req);
+    const offset = parseOptionalTimeZoneOffset(req.query as Record<string, unknown>);
+    const data = await assignLead(
+      actor,
+      req.params.id,
+      body.ownerId,
+      requestDayWindow(context.timeZone, offset),
+    );
+    sendData(res, data, "Lead assigned");
+  }),
+);
+
+apiRouter.get(
+  "/calls",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const query = parseCallListQuery(req.query as Record<string, unknown>);
+    const context = getRequestContext(req);
+    sendData(res, await listCalls(actor, query, context.timeZone), "ok");
+  }),
+);
+
+apiRouter.post(
+  "/calls",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const body = parseCreateCall(req.body);
+    sendData(res, await createCall(actor, body), "Call logged", 201);
+  }),
+);
+
+apiRouter.post(
+  "/leads/:id/calls/start",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const data = await startLeadCall(actor, req.params.id);
+    if (!data.started) {
+      sendData(res, data, "RingCentral is not configured");
+      return;
+    }
+    sendData(res, data, "Call started");
+  }),
+);
+
+apiRouter.get(
+  "/calls/:id",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    sendData(res, await getCall(actor, req.params.id), "ok");
+  }),
+);
+
+apiRouter.post(
+  "/leads/:id/notes",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const actor = salesActor(req);
+    const body = parseLeadNote(req.body);
+    const context = getRequestContext(req);
+    const offset = parseOptionalTimeZoneOffset(req.query as Record<string, unknown>);
+    const data = await addLeadNote(
+      actor,
+      req.params.id,
+      body,
+      requestDayWindow(context.timeZone, offset),
+      context.timeZone,
+      offset,
+    );
+    sendData(res, data, "Note added");
   }),
 );
 
@@ -978,6 +1366,64 @@ apiRouter.post(
 );
 
 apiRouter.get(
+  "/users/sales",
+  admin,
+  asyncHandler(async (req, res) => {
+    const query = parsePageQuery(req.query as Record<string, unknown>, 100);
+    const status = parseSalesListStatus(req.query as Record<string, unknown>);
+    const data = await listSales(query, status);
+    sendData(res, data, "ok");
+  }),
+);
+
+apiRouter.get(
+  "/users/sales/:id",
+  adminOrSales,
+  asyncHandler(async (req, res) => {
+    const context = getRequestContext(req);
+    sendData(res, await getSales(context.user, req.params.id), "ok");
+  }),
+);
+
+apiRouter.post(
+  "/users/sales",
+  admin,
+  asyncHandler(async (req, res) => {
+    const body = parseCreateSales(req.body);
+    const data = await createSales(body);
+    sendData(res, data, "Sales account created");
+  }),
+);
+
+apiRouter.post(
+  "/users/sales/:id/deactivate",
+  admin,
+  asyncHandler(async (req, res) => {
+    const data = await deactivateSales(req.params.id);
+    sendData(res, data, "Sales account deactivated");
+  }),
+);
+
+apiRouter.post(
+  "/users/sales/:id/password",
+  admin,
+  asyncHandler(async (req, res) => {
+    const body = parseCaregiverPassword(req.body);
+    const data = await changeSalesPassword(req.params.id, body.password);
+    sendData(res, data, "Password updated");
+  }),
+);
+
+apiRouter.post(
+  "/users/sales/:id/sessions/revoke",
+  admin,
+  asyncHandler(async (req, res) => {
+    const data = await revokeSalesSessions(req.params.id);
+    sendData(res, data, "Session revoked");
+  }),
+);
+
+apiRouter.get(
   "/users/caregivers/:id/availability",
   admin,
   asyncHandler(async (req, res) => {
@@ -1146,3 +1592,11 @@ apiRouter.use(
     res.status(404).json(errorBody("The requested resource was not found.", "NOT_FOUND"));
   },
 );
+
+function salesActor(req: Request): SalesActor {
+  const context = getRequestContext(req);
+  if (context.user.role !== "ADMIN" && context.user.role !== "SALES") {
+    throw forbidden();
+  }
+  return { id: context.user.id, role: context.user.role };
+}

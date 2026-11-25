@@ -63,6 +63,10 @@ export function conflict(message: string): AppError {
   return new AppError(409, message, "CONFLICT");
 }
 
+export function ringCentralUnavailable(): AppError {
+  return new AppError(502, "RingCentral did not start the call.", "RINGCENTRAL_UNAVAILABLE");
+}
+
 export function scheduleWarnings(warnings: unknown[]): AppError {
   return new AppError(
     409,

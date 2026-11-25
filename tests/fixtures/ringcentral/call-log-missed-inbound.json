@@ -1,0 +1,24 @@
+{
+  "uuid": "evt-missed-1",
+  "event": "/restapi/v1.0/account/111/extension/222/call-log",
+  "timestamp": "2026-11-19T21:00:05.000Z",
+  "subscriptionId": "sub-1",
+  "body": {
+    "id": "calllog-missed-1",
+    "sessionId": "sess-missed-1",
+    "telephonySessionId": "s-missed-1",
+    "startTime": "2026-11-19T21:00:00.000Z",
+    "duration": 0,
+    "type": "Voice",
+    "direction": "Inbound",
+    "action": "Phone Call",
+    "result": "Missed",
+    "from": {
+      "phoneNumber": "+14375550164"
+    },
+    "to": {
+      "phoneNumber": "+14165550100",
+      "name": "Senoria"
+    }
+  }
+}

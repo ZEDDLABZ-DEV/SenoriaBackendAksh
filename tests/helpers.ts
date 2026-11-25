@@ -51,6 +51,11 @@ export async function resetDatabase(): Promise<void> {
   }
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
+      sales_meetings,
+      sales_calls,
+      lead_timeline_events,
+      leads,
+      sales_round_robin_state,
       visit_hour_adjustments,
       notifications,
       notification_devices,
@@ -90,7 +95,7 @@ export async function resetDatabase(): Promise<void> {
 }
 
 export async function createUser(input: {
-  role?: "CAREGIVER" | "ADMIN";
+  role?: "CAREGIVER" | "ADMIN" | "SALES";
   email?: string;
   firstName?: string;
   lastName?: string;

@@ -1,4 +1,4 @@
-const SENSITIVE_KEY = /password|token|authorization|secret|pepper|cookie/i;
+const SENSITIVE_KEY = /password|token|authorization|secret|pepper|cookie|jwt|assertion|credential/i;
 
 export function redact(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -14,7 +14,7 @@ export function redact(value: unknown): unknown {
   return value;
 }
 
-function write(level: "info" | "error", message: string, meta?: Record<string, unknown>): void {
+function write(level: "info" | "warn" | "error", message: string, meta?: Record<string, unknown>): void {
   const payload = {
     level,
     message,
@@ -23,6 +23,8 @@ function write(level: "info" | "error", message: string, meta?: Record<string, u
   const line = JSON.stringify(payload);
   if (level === "error") {
     console.error(line);
+  } else if (level === "warn") {
+    console.warn(line);
   } else {
     console.log(line);
   }
@@ -30,6 +32,10 @@ function write(level: "info" | "error", message: string, meta?: Record<string, u
 
 export function logInfo(message: string, meta?: Record<string, unknown>): void {
   write("info", message, meta);
+}
+
+export function logWarn(message: string, meta?: Record<string, unknown>): void {
+  write("warn", message, meta);
 }
 
 export function logError(message: string, meta?: Record<string, unknown>): void {

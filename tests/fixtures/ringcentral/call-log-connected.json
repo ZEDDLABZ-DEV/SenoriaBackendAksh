@@ -1,0 +1,30 @@
+{
+  "uuid": "evt-connected-1",
+  "event": "/restapi/v1.0/account/111/extension/222/call-log",
+  "timestamp": "2026-11-19T20:18:12.000Z",
+  "subscriptionId": "sub-1",
+  "body": {
+    "id": "calllog-connected-1",
+    "sessionId": "sess-connected-1",
+    "telephonySessionId": "s-connected-1",
+    "startTime": "2026-11-19T20:14:00.000Z",
+    "duration": 252,
+    "type": "Voice",
+    "direction": "Outbound",
+    "action": "VoIP Call",
+    "result": "Call connected",
+    "to": {
+      "phoneNumber": "+14165550142",
+      "name": "Maria Chen"
+    },
+    "from": {
+      "phoneNumber": "+14165550100",
+      "name": "Senoria"
+    },
+    "recording": {
+      "id": "rec-connected-1",
+      "type": "Automatic",
+      "contentUri": "https://media.example.test/recording/rec-connected-1/content"
+    }
+  }
+}

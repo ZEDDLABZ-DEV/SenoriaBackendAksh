@@ -65,7 +65,24 @@ SEED_CAREGIVER_PHONE=(604) 555-0148
 
 The seed refuses to run when `NODE_ENV=production`. Running it again updates that caregiver's password and does not delete existing clients.
 
-Sample schedule dates use the current calendar day in `America/Vancouver`: a visit today, one tomorrow, one completed yesterday, and one cancelled visit, plus 11 active clients.
+Sample schedule dates use the current calendar day in `America/Vancouver`: a visit today, one tomorrow, one completed yesterday, and one cancelled visit, plus 11 active clients. The same command also refreshes the sales workspace sample below.
+
+### Sales workspace
+
+`npm run seed:sales` loads Today, Leads, Calls, Calendar, and Salespeople with demo data. It is safe to run again: seed users are updated in place and only the demo leads, calls, and meetings are replaced. `npm run db:seed` runs this after the caregiver sample. It refuses to run when `NODE_ENV=production`.
+
+Dates are the current day in `America/Vancouver`, which is also the API default when a request omits `timeZoneOffset`.
+
+| Email | Status |
+|-------|--------|
+| `alex.morgan@senoria.seed` | active |
+| `priya.nair@senoria.seed` | active |
+| `sam.ortiz@senoria.seed` | active |
+| `lena.brooks@senoria.seed` | inactive, skipped by round-robin |
+
+Password for all four: `SeedSales1!`
+
+The round-robin cursor is left on Sam Ortiz, so the next automatic lead goes to the next active rep after him (Alex Morgan when these three are the only active sales users). Log in as Alex to see a Today queue with due and new leads, plus the unmatched inbound call.
 
 ### Initial administrator
 

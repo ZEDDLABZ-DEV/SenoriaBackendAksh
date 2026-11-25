@@ -14,6 +14,8 @@
     "test": "vitest run",
     "db:migrate": "tsx scripts/assert-migrations-preserve-constraints.ts && prisma migrate deploy && prisma db execute --file prisma/preserve-constraints.sql --schema prisma/schema.prisma",
     "db:seed": "tsx scripts/seed.ts",
+    "seed:sales": "tsx scripts/seed-sales.ts",
+    "integrations:smoke": "node scripts/integrations-smoke.mjs",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "db:local": "sh scripts/dev-database.sh"
   },

@@ -7,7 +7,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "users_email_lower_idx" ON "users" (lower("ema
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_role_check') THEN
-    ALTER TABLE "users" ADD CONSTRAINT "users_role_check" CHECK ("role" IN ('CAREGIVER', 'ADMIN'));
+    ALTER TABLE "users" ADD CONSTRAINT "users_role_check" CHECK ("role" IN ('CAREGIVER', 'ADMIN', 'SALES'));
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_status_check') THEN
     ALTER TABLE "users" ADD CONSTRAINT "users_status_check" CHECK ("status" IN ('active', 'inactive', 'deletion_pending'));
@@ -109,7 +109,99 @@ BEGIN
       OR ("status" IN ('approved', 'rejected') AND "reviewed_by_id" IS NOT NULL AND "resolved_at" IS NOT NULL)
     );
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_stage_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_stage_check" CHECK ("stage" IN ('New', 'Contacted', 'Qualified', 'Visit booked', 'Won', 'Lost'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_source_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_source_check" CHECK ("source" IN ('Facebook', 'Instagram', 'Phone', 'Referral'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_first_name_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_first_name_check" CHECK (length(btrim("first_name")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_last_name_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_last_name_check" CHECK (length(btrim("last_name")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_phone_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_phone_check" CHECK (length(btrim("phone")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_email_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_email_check" CHECK ("email" IS NULL OR length(btrim("email")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_next_step_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_next_step_check" CHECK ("next_step" IS NULL OR length(btrim("next_step")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lead_timeline_events_kind_check') THEN
+    ALTER TABLE "lead_timeline_events" ADD CONSTRAINT "lead_timeline_events_kind_check" CHECK ("kind" IN ('Lead', 'Call', 'Note', 'Meeting', 'Stage', 'Assignment'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lead_timeline_events_text_check') THEN
+    ALTER TABLE "lead_timeline_events" ADD CONSTRAINT "lead_timeline_events_text_check" CHECK (length(btrim("text")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_round_robin_state_singleton_check') THEN
+    ALTER TABLE "sales_round_robin_state" ADD CONSTRAINT "sales_round_robin_state_singleton_check" CHECK ("id" = 1);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_calls_direction_check') THEN
+    ALTER TABLE "sales_calls" ADD CONSTRAINT "sales_calls_direction_check" CHECK ("direction" IN ('Outbound', 'Inbound'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_calls_result_check') THEN
+    ALTER TABLE "sales_calls" ADD CONSTRAINT "sales_calls_result_check" CHECK ("result" IN ('Connected', 'No answer', 'Voicemail', 'Missed'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_calls_name_check') THEN
+    ALTER TABLE "sales_calls" ADD CONSTRAINT "sales_calls_name_check" CHECK (length(btrim("name")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_calls_phone_check') THEN
+    ALTER TABLE "sales_calls" ADD CONSTRAINT "sales_calls_phone_check" CHECK (length(btrim("phone")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_calls_duration_check') THEN
+    ALTER TABLE "sales_calls" ADD CONSTRAINT "sales_calls_duration_check" CHECK ("duration_seconds" IS NULL OR "duration_seconds" >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_calls_time_order_check') THEN
+    ALTER TABLE "sales_calls" ADD CONSTRAINT "sales_calls_time_order_check" CHECK ("ended_at" IS NULL OR "ended_at" >= "started_at");
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_meetings_kind_check') THEN
+    ALTER TABLE "sales_meetings" ADD CONSTRAINT "sales_meetings_kind_check" CHECK ("kind" IN ('Call', 'Visit'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_meetings_title_check') THEN
+    ALTER TABLE "sales_meetings" ADD CONSTRAINT "sales_meetings_title_check" CHECK (length(btrim("title")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_meetings_person_check') THEN
+    ALTER TABLE "sales_meetings" ADD CONSTRAINT "sales_meetings_person_check" CHECK (length(btrim("person")) > 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_meetings_time_order_check') THEN
+    ALTER TABLE "sales_meetings" ADD CONSTRAINT "sales_meetings_time_order_check" CHECK ("end_at" > "start_at");
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_external_source_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_external_source_check" CHECK ("external_source" IS NULL OR "external_source" IN ('meta', 'ringcentral', 'zoho', 'outlook'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_external_pair_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_external_pair_check" CHECK (("external_source" IS NULL AND "external_id" IS NULL) OR ("external_source" IS NOT NULL AND "external_id" IS NOT NULL AND length(btrim("external_source")) > 0 AND length(btrim("external_id")) > 0));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lead_timeline_events_external_source_check') THEN
+    ALTER TABLE "lead_timeline_events" ADD CONSTRAINT "lead_timeline_events_external_source_check" CHECK ("external_source" IS NULL OR "external_source" IN ('meta', 'ringcentral', 'zoho', 'outlook'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lead_timeline_events_external_pair_check') THEN
+    ALTER TABLE "lead_timeline_events" ADD CONSTRAINT "lead_timeline_events_external_pair_check" CHECK (("external_source" IS NULL AND "external_id" IS NULL) OR ("external_source" IS NOT NULL AND "external_id" IS NOT NULL AND length(btrim("external_source")) > 0 AND length(btrim("external_id")) > 0));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_calls_external_source_check') THEN
+    ALTER TABLE "sales_calls" ADD CONSTRAINT "sales_calls_external_source_check" CHECK ("external_source" IS NULL OR "external_source" IN ('meta', 'ringcentral', 'zoho', 'outlook'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_calls_external_pair_check') THEN
+    ALTER TABLE "sales_calls" ADD CONSTRAINT "sales_calls_external_pair_check" CHECK (("external_source" IS NULL AND "external_id" IS NULL) OR ("external_source" IS NOT NULL AND "external_id" IS NOT NULL AND length(btrim("external_source")) > 0 AND length(btrim("external_id")) > 0));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_meetings_external_source_check') THEN
+    ALTER TABLE "sales_meetings" ADD CONSTRAINT "sales_meetings_external_source_check" CHECK ("external_source" IS NULL OR "external_source" IN ('meta', 'ringcentral', 'zoho', 'outlook'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sales_meetings_external_pair_check') THEN
+    ALTER TABLE "sales_meetings" ADD CONSTRAINT "sales_meetings_external_pair_check" CHECK (("external_source" IS NULL AND "external_id" IS NULL) OR ("external_source" IS NOT NULL AND "external_id" IS NOT NULL AND length(btrim("external_source")) > 0 AND length(btrim("external_id")) > 0));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'leads_zoho_record_id_check') THEN
+    ALTER TABLE "leads" ADD CONSTRAINT "leads_zoho_record_id_check" CHECK ("zoho_record_id" IS NULL OR length(btrim("zoho_record_id")) > 0);
+  END IF;
 END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "appointment_releases_one_open_idx" ON "appointment_releases" ("appointment_id") WHERE "status" = 'open';
 CREATE UNIQUE INDEX IF NOT EXISTS "account_deletion_requests_one_pending_idx" ON "account_deletion_requests" ("user_id") WHERE "status" = 'pending';
+CREATE UNIQUE INDEX IF NOT EXISTS "leads_external_source_id_key" ON "leads" ("external_source", "external_id") WHERE "external_id" IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "lead_timeline_events_external_source_id_key" ON "lead_timeline_events" ("external_source", "external_id") WHERE "external_id" IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "sales_calls_external_source_id_key" ON "sales_calls" ("external_source", "external_id") WHERE "external_id" IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "sales_meetings_external_source_id_key" ON "sales_meetings" ("external_source", "external_id") WHERE "external_id" IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "leads_zoho_record_id_key" ON "leads" ("zoho_record_id") WHERE "zoho_record_id" IS NOT NULL;

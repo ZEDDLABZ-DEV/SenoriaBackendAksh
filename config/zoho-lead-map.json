@@ -1,0 +1,32 @@
+{
+  "source": {
+    "Facebook": "Facebook",
+    "X (Twitter)": "Instagram",
+    "Cold Call": "Phone",
+    "Chat": "Phone",
+    "Sales Email Alias": "Phone",
+    "Employee Referral": "Referral",
+    "External Referral": "Referral",
+    "Partner": "Referral",
+    "Seminar Partner": "Referral",
+    "Internal Seminar": "Referral",
+    "Trade Show": "Referral",
+    "Advertisement": "Referral",
+    "Online Store": "Referral",
+    "Public Relations": "Referral",
+    "Web Download": "Referral",
+    "Web Research": "Referral"
+  },
+  "sourceDefault": "Referral",
+  "stage": {
+    "Not Contacted": "New",
+    "Attempted to Contact": "Contacted",
+    "Contact in Future": "Contacted",
+    "Contacted": "Contacted",
+    "Pre-Qualified": "Qualified",
+    "Not Qualified": "Lost",
+    "Junk Lead": "Lost",
+    "Lost Lead": "Lost"
+  },
+  "stageDefault": "New"
+}

@@ -1,3 +1,5 @@
+import { addDays } from "./dates";
+
 export const DEFAULT_TIME_ZONE = "America/Vancouver";
 
 export function isValidIanaTimeZone(timeZone: string): boolean {
@@ -93,6 +95,55 @@ export function formatDateTimeInTimeZone(instant: Date, timeZone: string): strin
   const read = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
   const hour = read("hour") === "24" ? "00" : read("hour");
   return `${read("year")}-${read("month")}-${read("day")} ${hour}:${read("minute")}`;
+}
+
+export function offsetDateTimeToUtc(isoDate: string, clock: string, offset: string): Date {
+  const match = OFFSET.exec(offset.trim());
+  if (!match) {
+    throw new Error("Invalid time zone offset");
+  }
+  const sign = match[1] === "-" ? -1 : 1;
+  const minutes = sign * (Number(match[2]) * 60 + Number(match[3]));
+  if (Math.abs(minutes) > 14 * 60) {
+    throw new Error("Invalid time zone offset");
+  }
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const [hour, minute] = clock.split(":").map(Number);
+  const localAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0);
+  return new Date(localAsUtc - minutes * 60_000);
+}
+
+export function localDateTimeToUtc(
+  isoDate: string,
+  clock: string,
+  timeZone: string,
+  timeZoneOffset?: string,
+): Date {
+  if (timeZoneOffset) {
+    return offsetDateTimeToUtc(isoDate, clock, timeZoneOffset);
+  }
+  return zonedDateTimeToUtc(isoDate, clock, timeZone);
+}
+
+export function dayBounds(
+  instant: Date,
+  timeZone: string,
+  timeZoneOffset?: string,
+): { start: Date; end: Date; today: string } {
+  if (timeZoneOffset) {
+    const today = calendarDateForOffset(instant, timeZoneOffset);
+    return {
+      today,
+      start: offsetDateTimeToUtc(today, "00:00", timeZoneOffset),
+      end: offsetDateTimeToUtc(addDays(today, 1), "00:00", timeZoneOffset),
+    };
+  }
+  const today = calendarDateInTimeZone(instant, timeZone);
+  return {
+    today,
+    start: zonedDateTimeToUtc(today, "00:00", timeZone),
+    end: zonedDateTimeToUtc(addDays(today, 1), "00:00", timeZone),
+  };
 }
 
 export function calendarDateInTimeZone(instant: Date, timeZone: string): string {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   adminNoteForOther,
   ClosedSetError,
@@ -7,6 +7,7 @@ import {
 } from "../src/domain/enums";
 import { presentVisit } from "../src/domain/visit";
 import { errorHandler } from "../src/middleware/errorHandler";
+import { logIntegration } from "../src/integrations/log";
 import { redact } from "../src/lib/logger";
 import { calendarDateInTimeZone, resolveTimeZone } from "../src/lib/timezone";
 
@@ -132,11 +133,51 @@ describe("visit presentation", () => {
 
 describe("redaction and server errors", () => {
   it("removes secrets from log metadata", () => {
-    expect(redact({ password: "hunter2", accessToken: "abc", nested: { refreshToken: "def" } })).toEqual({
+    expect(
+      redact({
+        password: "hunter2",
+        accessToken: "abc",
+        jwt: "jwt-value",
+        assertion: "assertion-value",
+        nested: { refreshToken: "def" },
+      }),
+    ).toEqual({
       password: "[redacted]",
       accessToken: "[redacted]",
+      jwt: "[redacted]",
+      assertion: "[redacted]",
       nested: { refreshToken: "[redacted]" },
     });
+  });
+
+  it("writes integration outcomes with ids only", () => {
+    const info = vi.spyOn(console, "log").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      logIntegration("succeeded", { integration: "meta", externalId: "444", leadId: "lead-1" });
+      logIntegration("failed", { integration: "zoho", leadId: "lead-1", noteId: "note-1" });
+      const lines = [...info.mock.calls, ...error.mock.calls].map((call) => String(call[0]));
+      expect(JSON.parse(lines[0] ?? "{}")).toEqual({
+        level: "info",
+        message: "integration sync succeeded",
+        integration: "meta",
+        success: true,
+        externalId: "444",
+        leadId: "lead-1",
+      });
+      expect(JSON.parse(lines[1] ?? "{}")).toEqual({
+        level: "error",
+        message: "integration sync failed",
+        integration: "zoho",
+        success: false,
+        leadId: "lead-1",
+        noteId: "note-1",
+      });
+      expect(lines.join("\n")).not.toContain("hunter2");
+    } finally {
+      info.mockRestore();
+      error.mockRestore();
+    }
   });
 
   it("returns the documented 500 body without echoing the thrown message", () => {

@@ -25,6 +25,7 @@ model User {
   role         String
   avatar       String?
   phone        String?
+  dateOfBirth  DateTime? @map("date_of_birth") @db.Date
   position     String?
   status       String
   sessionVersion Int      @default(0) @map("session_version")
@@ -51,6 +52,11 @@ model User {
   clientsUpdated    Client[] @relation("ClientUpdatedBy")
   accountDeletionRequests AccountDeletionRequest[] @relation("AccountDeletionRequestedBy")
   accountDeletionReviews  AccountDeletionRequest[] @relation("AccountDeletionReviewedBy")
+  ownedLeads              Lead[] @relation("LeadOwner")
+  leadTimelineEvents      LeadTimelineEvent[] @relation("LeadTimelineActor")
+  salesRoundRobinStates   SalesRoundRobinState[]
+  salesCalls              SalesCall[] @relation("CallOwner")
+  salesMeetings           SalesMeeting[] @relation("MeetingOwner")
 
   @@index([role, status])
   @@map("users")
@@ -686,4 +692,117 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+model Lead {
+  id          String    @id @db.Uuid
+  firstName   String    @map("first_name")
+  lastName    String    @map("last_name")
+  phone       String
+  email       String?
+  source      String
+  stage       String    @default("New")
+  ownerId     String?   @map("owner_id") @db.Uuid
+  about       String    @default("")
+  lastTouchAt DateTime? @map("last_touch_at") @db.Timestamptz(6)
+  nextStep    String?   @map("next_step")
+  nextStepAt  DateTime? @map("next_step_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  externalSource String?   @map("external_source")
+  externalId     String?   @map("external_id")
+  lastSyncedAt   DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  syncError      String?   @map("sync_error")
+  zohoRecordId   String?   @map("zoho_record_id")
+
+  owner    User?               @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  timeline LeadTimelineEvent[]
+  calls    SalesCall[]
+  meetings SalesMeeting[]
+
+  @@index([ownerId, stage])
+  @@index([nextStepAt])
+  @@map("leads")
+}
+
+model LeadTimelineEvent {
+  id         String   @id @db.Uuid
+  leadId     String   @map("lead_id") @db.Uuid
+  kind       String
+  text       String
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
+  actorId    String?  @map("actor_id") @db.Uuid
+  meta       Json?
+  sortIndex  Int      @default(0) @map("sort_index")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  externalSource String?   @map("external_source")
+  externalId     String?   @map("external_id")
+  lastSyncedAt   DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  syncError      String?   @map("sync_error")
+
+  lead  Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actor User? @relation("LeadTimelineActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, occurredAt])
+  @@map("lead_timeline_events")
+}
+
+model SalesRoundRobinState {
+  id                 Int     @id
+  lastAssignedUserId String? @map("last_assigned_user_id") @db.Uuid
+
+  lastAssignedUser User? @relation(fields: [lastAssignedUserId], references: [id], onDelete: SetNull)
+
+  @@map("sales_round_robin_state")
+}
+
+model SalesCall {
+  id               String    @id @db.Uuid
+  leadId           String?   @map("lead_id") @db.Uuid
+  ownerId          String?   @map("owner_id") @db.Uuid
+  name             String
+  phone            String
+  direction        String
+  startedAt        DateTime  @map("started_at") @db.Timestamptz(6)
+  endedAt          DateTime? @map("ended_at") @db.Timestamptz(6)
+  durationSeconds  Int?      @map("duration_seconds")
+  result           String
+  recordingUrl     String?   @map("recording_url")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  externalSource   String?   @map("external_source")
+  externalId       String?   @map("external_id")
+  lastSyncedAt     DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  syncError        String?   @map("sync_error")
+
+  lead  Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  owner User? @relation("CallOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([startedAt])
+  @@map("sales_calls")
+}
+
+model SalesMeeting {
+  id        String    @id @db.Uuid
+  leadId    String?   @map("lead_id") @db.Uuid
+  ownerId   String    @map("owner_id") @db.Uuid
+  title     String
+  person    String
+  kind      String
+  startAt   DateTime  @map("start_at") @db.Timestamptz(6)
+  endAt     DateTime  @map("end_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  externalSource String?   @map("external_source")
+  externalId     String?   @map("external_id")
+  lastSyncedAt   DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  syncError      String?   @map("sync_error")
+
+  lead  Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  owner User  @relation("MeetingOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@index([ownerId, startAt])
+  @@map("sales_meetings")
 }
