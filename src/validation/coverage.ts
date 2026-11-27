@@ -2,7 +2,7 @@ import { z } from "zod";
 import { validation } from "../lib/errors";
 import { parseWithSchema } from "./common";
 
-const releaseSchema = z
+export const coverageReasonSchema = z
   .object({
     reason: z
       .string({ required_error: "reason is required" })
@@ -13,7 +13,7 @@ const releaseSchema = z
   .strict();
 
 export function parseCoverageReason(body: unknown): { reason: string } {
-  return parseWithSchema(releaseSchema, body);
+  return parseWithSchema(coverageReasonSchema, body);
 }
 
 export function parseUnreadQuery(query: Record<string, unknown>): boolean {

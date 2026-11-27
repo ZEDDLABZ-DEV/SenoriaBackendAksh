@@ -2,7 +2,7 @@ import { z } from "zod";
 import { validation } from "../lib/errors";
 import { parseWithSchema } from "./common";
 
-const requestSchema = z
+export const accountDeletionRequestSchema = z
   .object({
     reason: z
       .string()
@@ -17,7 +17,7 @@ export function parseAccountDeletionRequest(body: unknown) {
   if (body === undefined || body === null || (typeof body === "object" && Object.keys(body as object).length === 0)) {
     return {};
   }
-  return parseWithSchema(requestSchema, body);
+  return parseWithSchema(accountDeletionRequestSchema, body);
 }
 
 export function parseDeletionRequestStatus(query: Record<string, unknown>): string {

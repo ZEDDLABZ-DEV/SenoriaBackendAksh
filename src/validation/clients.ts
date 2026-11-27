@@ -77,7 +77,7 @@ const addressSchema = z
   })
   .strict();
 
-const createClientSchema = z
+export const createClientSchema = z
   .object({
     firstName: z.string().trim().min(1, "firstName is required"),
     lastName: z.string(),
@@ -96,7 +96,7 @@ const createClientSchema = z
   })
   .strict();
 
-const updateClientSchema = z
+export const updateClientSchema = z
   .object({
     firstName: z.string().optional(),
     lastName: z.string().optional(),
@@ -127,14 +127,14 @@ const updateClientSchema = z
   })
   .strict();
 
-const hazardSchema = z
+export const hazardSchema = z
   .object({
     type: z.enum(HAZARD_WRITE_TYPES),
     description: z.string(),
   })
   .strict();
 
-const serviceRequirementSchema = z
+export const serviceRequirementSchema = z
   .object({
     category: z.string().trim().min(1, "category is required"),
     name: z.string().trim().min(1, "name is required"),

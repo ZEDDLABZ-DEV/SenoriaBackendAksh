@@ -2,13 +2,13 @@ import { z } from "zod";
 import { validation } from "../lib/errors";
 import { clockSchema, isoDateSchema, parseWithSchema } from "./common";
 
-const dailyCompletionSchema = z
+export const dailyCompletionSchema = z
   .object({
     date: isoDateSchema,
   })
   .strict();
 
-const cancelSchema = z
+export const cancelAppointmentSchema = z
   .object({
     appointmentStatus: z.string({ required_error: "appointmentStatus is required" }),
     cancellationReason: z.string().optional(),
@@ -48,7 +48,7 @@ const appointmentFields = {
   acknowledgeWarnings: z.boolean().optional(),
 };
 
-const createAppointmentSchema = z
+export const createAppointmentSchema = z
   .object({
     description: z.string().default(""),
     clientId: z.string({ required_error: "clientId is required" }).min(1, "clientId is required"),
@@ -70,14 +70,14 @@ const createAppointmentSchema = z
   })
   .strict();
 
-const updateAppointmentSchema = z.object(appointmentFields).strict();
+export const updateAppointmentSchema = z.object(appointmentFields).strict();
 
 export function parseDailyCompletion(body: unknown): { date: string } {
   return parseWithSchema(dailyCompletionSchema, body);
 }
 
 export function parseCancel(body: unknown): { cancellationReason?: string } {
-  const parsed = parseWithSchema(cancelSchema, body);
+  const parsed = parseWithSchema(cancelAppointmentSchema, body);
   if (parsed.appointmentStatus !== "cancelled") {
     throw validation("Only cancellation is supported", {
       appointmentStatus: ["appointmentStatus must be cancelled"],

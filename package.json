@@ -28,7 +28,9 @@
     "firebase-admin": "^14.5.0",
     "jsonwebtoken": "^9.0.2",
     "pdfkit": "^0.16.0",
-    "zod": "^3.25.76"
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -37,6 +39,7 @@
     "@types/node": "^24.7.2",
     "@types/pdfkit": "^0.13.9",
     "@types/supertest": "^6.0.3",
+    "@types/swagger-ui-express": "^4.1.8",
     "prisma": "^6.16.2",
     "supertest": "^7.1.4",
     "tsx": "^4.20.6",

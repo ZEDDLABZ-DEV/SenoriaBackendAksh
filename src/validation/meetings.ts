@@ -4,7 +4,7 @@ import { validation } from "../lib/errors";
 import { isoDateSchema, parseWithSchema } from "./common";
 import { parseOptionalTimeZoneOffset } from "./leads";
 
-const createMeetingSchema = z
+export const createMeetingSchema = z
   .object({
     leadId: z.string().uuid("leadId must be a uuid"),
     title: z.string().trim().min(1, "title is required").max(200, "title must be at most 200 characters"),
@@ -14,7 +14,7 @@ const createMeetingSchema = z
   })
   .strict();
 
-const updateMeetingSchema = z
+export const updateMeetingSchema = z
   .object({
     leadId: z.string().uuid("leadId must be a uuid").optional(),
     title: z.string().trim().min(1, "title is required").max(200, "title must be at most 200 characters").optional(),

@@ -8,7 +8,7 @@ import { prisma } from "../lib/prisma";
 import { isUserRole, verifyAccessToken, type UserRole } from "../lib/tokens";
 
 export function requireRoles(roles: UserRole[]) {
-  return asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
+  const guard = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
     const header = req.header("authorization");
     if (!header?.startsWith("Bearer ")) {
       throw unauthenticated();
@@ -54,4 +54,6 @@ export function requireRoles(roles: UserRole[]) {
     }
     next();
   });
+  Object.defineProperty(guard, "name", { value: `auth:${roles.join(",")}` });
+  return guard;
 }

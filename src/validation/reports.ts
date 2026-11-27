@@ -123,7 +123,7 @@ export function parseReportFilters(query: Record<string, unknown>, today: string
   };
 }
 
-const hourAdjustmentSchema = z
+export const hourAdjustmentSchema = z
   .object({
     adjustedHours: z
       .number({

@@ -1,6 +1,8 @@
 import cors from "cors";
 import express, { type Request } from "express";
+import { serve, setup } from "swagger-ui-express";
 import { config } from "./config";
+import { openApiDocument } from "./docs/openapi";
 import { asyncHandler } from "./http/asyncHandler";
 import { logInfo } from "./lib/logger";
 import { prisma } from "./lib/prisma";
@@ -41,6 +43,19 @@ export function createApp() {
     });
     next();
   });
+
+  const apiDocument = openApiDocument();
+  app.get("/openapi.json", (_req, res) => {
+    res.json(apiDocument);
+  });
+  app.use(
+    "/docs",
+    serve,
+    setup(apiDocument, {
+      customSiteTitle: "Senoria API",
+      swaggerOptions: { persistAuthorization: true },
+    }),
+  );
 
   app.get(
     "/health",

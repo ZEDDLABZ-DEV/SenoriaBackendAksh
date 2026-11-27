@@ -10,24 +10,24 @@ const platformSchema = z
   .string({ required_error: "platform is required", invalid_type_error: "platform must be ios or android" })
   .refine((value) => value === "ios" || value === "android", "platform must be ios or android");
 
-const registerSchema = z
+export const registerDeviceSchema = z
   .object({
     token: tokenSchema,
     platform: platformSchema,
   })
   .strict();
 
-const removeSchema = z
+export const removeDeviceSchema = z
   .object({
     token: tokenSchema,
   })
   .strict();
 
 export function parseRegisterDevice(body: unknown): { token: string; platform: "ios" | "android" } {
-  const parsed = parseWithSchema(registerSchema, body);
+  const parsed = parseWithSchema(registerDeviceSchema, body);
   return { token: parsed.token, platform: parsed.platform as "ios" | "android" };
 }
 
 export function parseRemoveDevice(body: unknown): { token: string } {
-  return parseWithSchema(removeSchema, body);
+  return parseWithSchema(removeDeviceSchema, body);
 }

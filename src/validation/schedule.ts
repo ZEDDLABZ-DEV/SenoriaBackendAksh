@@ -25,7 +25,7 @@ const slotSchema = z
     path: ["endTime"],
   });
 
-const availabilitySchema = z
+export const availabilitySchema = z
   .object({
     windows: z
       .array(z.object({ weekday: weekdaySchema, startTime: clockSchema, endTime: clockSchema }).strict())
@@ -33,7 +33,7 @@ const availabilitySchema = z
   })
   .strict();
 
-const timeOffSchema = z
+export const timeOffSchema = z
   .object({
     startDate: isoDateSchema,
     endDate: isoDateSchema.optional(),
@@ -64,7 +64,7 @@ const seriesTemplateFields = {
   serviceIds: serviceIdsSchema,
 };
 
-const createSeriesSchema = z
+export const createSeriesSchema = z
   .object({
     clientId: z.string({ required_error: "clientId is required" }).min(1, "clientId is required"),
     caregiverId: z.string({ required_error: "caregiverId is required" }).min(1, "caregiverId is required"),
@@ -89,7 +89,7 @@ const createSeriesSchema = z
   })
   .strict();
 
-const updateSeriesSchema = z
+export const updateSeriesSchema = z
   .object({
     fromDate: isoDateSchema.optional(),
     caregiverId: z.string().min(1).optional(),

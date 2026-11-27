@@ -5,7 +5,7 @@ import { isIsoDate } from "../lib/dates";
 import { parsePageQuery, parseWithSchema, type PageQuery } from "./common";
 import { parseOptionalTimeZoneOffset } from "./leads";
 
-const createCallSchema = z
+export const createCallSchema = z
   .object({
     leadId: z.string().uuid("leadId must be a uuid").nullable().optional(),
     phone: z.string().trim().min(1, "phone is required").max(40, "phone must be at most 40 characters"),

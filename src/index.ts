@@ -10,7 +10,7 @@ import {
 
 const app = createApp();
 const server = app.listen(config.port, () => {
-  logInfo("api listening", { port: config.port });
+  logInfo("api listening", { port: config.port, docs: `http://localhost:${config.port}/docs` });
   getIntegrationStatus();
   startAppointmentReminderScheduler();
 });

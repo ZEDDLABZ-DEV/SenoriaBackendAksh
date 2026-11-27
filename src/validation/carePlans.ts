@@ -3,7 +3,7 @@ import { CARE_PLAN_STATUS_VALUES, MEDICATION_SCHEDULES } from "../domain/enums";
 import { validation } from "../lib/errors";
 import { isoDateSchema, parseWithSchema } from "./common";
 
-const checkInSchema = z
+export const checkInSchema = z
   .object({
     timestamp: z
       .string({ required_error: "timestamp is required" })
@@ -27,7 +27,7 @@ const checkInSchema = z
   })
   .strict();
 
-const toggleSchema = z
+export const carePlanToggleSchema = z
   .object({
     itemType: z.string({ required_error: "itemType is required" }),
     itemId: z.string({ required_error: "itemId is required" }).min(1, "itemId is required"),
@@ -47,10 +47,10 @@ export function parseCheckIn(body: unknown): CheckInBody {
 }
 
 export function parseToggle(body: unknown): { itemType: string; itemId: string; date: string } {
-  return parseWithSchema(toggleSchema, body);
+  return parseWithSchema(carePlanToggleSchema, body);
 }
 
-const planSchema = z
+export const carePlanSchema = z
   .object({
     clientId: z.string().min(1).optional(),
     name: z.string().optional(),
@@ -62,7 +62,7 @@ const planSchema = z
   })
   .strict();
 
-const taskSchema = z
+export const carePlanTaskSchema = z
   .object({
     name: z.string().optional(),
     frequency: z.string().optional(),
@@ -70,7 +70,7 @@ const taskSchema = z
   })
   .strict();
 
-const medicationSchema = z
+export const carePlanMedicationSchema = z
   .object({
     medicationName: z.string().optional(),
     dosage: z.string().optional(),
@@ -79,7 +79,7 @@ const medicationSchema = z
   })
   .strict();
 
-const dietSchema = z
+export const carePlanDietSchema = z
   .object({
     meal: z.string().optional(),
     restrictions: z.string().optional(),
@@ -87,7 +87,7 @@ const dietSchema = z
   })
   .strict();
 
-const hygieneSchema = z
+export const carePlanHygieneSchema = z
   .object({
     activity: z.string().optional(),
     frequency: z.string().optional(),
@@ -117,7 +117,7 @@ function optionalSchedule(value: string | undefined): string {
 }
 
 export function parseCreateCarePlan(body: unknown) {
-  const value = parseWithSchema(planSchema, body);
+  const value = parseWithSchema(carePlanSchema, body);
   return {
     clientId: requireText(value.clientId, "clientId"),
     name: requireText(value.name, "name"),
@@ -133,11 +133,11 @@ export function parseUpdateCarePlan(body: unknown) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw validation("Validation failed", { body: ["Request body must be an object"] });
   }
-  return { present: body as Record<string, unknown>, value: parseWithSchema(planSchema, body) };
+  return { present: body as Record<string, unknown>, value: parseWithSchema(carePlanSchema, body) };
 }
 
 export function parseCreateTask(body: unknown) {
-  const value = parseWithSchema(taskSchema, body);
+  const value = parseWithSchema(carePlanTaskSchema, body);
   return {
     name: requireText(value.name, "name"),
     frequency: value.frequency?.trim() ?? "",
@@ -149,11 +149,11 @@ export function parseUpdateTask(body: unknown) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw validation("Validation failed", { body: ["Request body must be an object"] });
   }
-  return { present: body as Record<string, unknown>, value: parseWithSchema(taskSchema, body) };
+  return { present: body as Record<string, unknown>, value: parseWithSchema(carePlanTaskSchema, body) };
 }
 
 export function parseCreateMedication(body: unknown) {
-  const value = parseWithSchema(medicationSchema, body);
+  const value = parseWithSchema(carePlanMedicationSchema, body);
   return {
     medicationName: requireText(value.medicationName, "medicationName"),
     dosage: value.dosage?.trim() ?? "",
@@ -166,7 +166,7 @@ export function parseUpdateMedication(body: unknown) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw validation("Validation failed", { body: ["Request body must be an object"] });
   }
-  const value = parseWithSchema(medicationSchema, body);
+  const value = parseWithSchema(carePlanMedicationSchema, body);
   return {
     present: body as Record<string, unknown>,
     value: {
@@ -177,7 +177,7 @@ export function parseUpdateMedication(body: unknown) {
 }
 
 export function parseCreateDiet(body: unknown) {
-  const value = parseWithSchema(dietSchema, body);
+  const value = parseWithSchema(carePlanDietSchema, body);
   return {
     meal: requireText(value.meal, "meal"),
     restrictions: value.restrictions?.trim() ?? "",
@@ -189,11 +189,11 @@ export function parseUpdateDiet(body: unknown) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw validation("Validation failed", { body: ["Request body must be an object"] });
   }
-  return { present: body as Record<string, unknown>, value: parseWithSchema(dietSchema, body) };
+  return { present: body as Record<string, unknown>, value: parseWithSchema(carePlanDietSchema, body) };
 }
 
 export function parseCreateHygiene(body: unknown) {
-  const value = parseWithSchema(hygieneSchema, body);
+  const value = parseWithSchema(carePlanHygieneSchema, body);
   return {
     activity: requireText(value.activity, "activity"),
     frequency: value.frequency?.trim() ?? "",
@@ -205,5 +205,5 @@ export function parseUpdateHygiene(body: unknown) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw validation("Validation failed", { body: ["Request body must be an object"] });
   }
-  return { present: body as Record<string, unknown>, value: parseWithSchema(hygieneSchema, body) };
+  return { present: body as Record<string, unknown>, value: parseWithSchema(carePlanHygieneSchema, body) };
 }

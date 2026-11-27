@@ -18,7 +18,7 @@ const leadSourceSchema = z.enum(LEAD_SOURCES);
 const noteOutcomeSchema = z.enum(NOTE_OUTCOMES);
 const optionalEmail = z.union([caregiverEmailSchema, z.literal(""), z.null()]).optional();
 
-const createLeadSchema = z
+export const createLeadSchema = z
   .object({
     firstName: z.string().trim().min(1, "firstName is required").max(80, "firstName must be at most 80 characters"),
     lastName: z.string().trim().min(1, "lastName is required").max(80, "lastName must be at most 80 characters"),
@@ -30,7 +30,7 @@ const createLeadSchema = z
   })
   .strict();
 
-const updateLeadSchema = z
+export const updateLeadSchema = z
   .object({
     about: z.string().trim().max(4000, "about must be at most 4000 characters").optional(),
     phone: z.string().trim().min(1, "phone is required").max(40, "phone must be at most 40 characters").optional(),
@@ -46,19 +46,19 @@ const updateLeadSchema = z
   })
   .strict();
 
-const stageSchema = z
+export const leadStageBodySchema = z
   .object({
     stage: leadStageSchema,
   })
   .strict();
 
-const assignSchema = z
+export const assignLeadSchema = z
   .object({
     ownerId: z.string().uuid("ownerId must be a uuid"),
   })
   .strict();
 
-const noteSchema = z
+export const leadNoteSchema = z
   .object({
     outcome: noteOutcomeSchema,
     text: z.string().trim().min(1, "text is required").max(4000, "text must be at most 4000 characters"),
@@ -104,15 +104,15 @@ export function parseUpdateLead(body: unknown) {
 }
 
 export function parseLeadStage(body: unknown) {
-  return parseWithSchema(stageSchema, body);
+  return parseWithSchema(leadStageBodySchema, body);
 }
 
 export function parseAssignLead(body: unknown) {
-  return parseWithSchema(assignSchema, body);
+  return parseWithSchema(assignLeadSchema, body);
 }
 
 export function parseLeadNote(body: unknown) {
-  return parseWithSchema(noteSchema, body);
+  return parseWithSchema(leadNoteSchema, body);
 }
 
 export function parseLeadListQuery(query: Record<string, unknown>): LeadListQuery {

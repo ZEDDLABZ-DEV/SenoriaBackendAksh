@@ -6,7 +6,7 @@ const passwordSchema = z
   .string({ required_error: "Password is required" })
   .min(6, "Password must be at least 6 characters");
 
-const loginSchema = z
+export const loginSchema = z
   .object({
     email: caregiverEmailSchema,
     password: passwordSchema,
@@ -14,19 +14,19 @@ const loginSchema = z
   })
   .strict();
 
-const refreshSchema = z
+export const refreshSchema = z
   .object({
     refreshToken: z.string({ required_error: "Refresh token is required" }).min(1, "Refresh token is required"),
   })
   .strict();
 
-const forgotSchema = z
+export const forgotSchema = z
   .object({
     email: caregiverEmailSchema,
   })
   .strict();
 
-const resetSchema = z
+export const resetSchema = z
   .object({
     token: z.string({ required_error: "token is required" }).min(1, "token is required"),
     password: passwordSchema,
@@ -49,7 +49,7 @@ export function parseResetPassword(body: unknown) {
   return parseWithSchema(resetSchema, body);
 }
 
-const caregiverAccountSchema = z
+export const caregiverAccountSchema = z
   .object({
     firstName: z.string().trim().min(1, "firstName is required"),
     lastName: z.string().trim().min(1, "lastName is required"),
@@ -60,7 +60,7 @@ const caregiverAccountSchema = z
   })
   .strict();
 
-const positionSchema = z
+export const positionSchema = z
   .object({
     name: z.string().trim().min(1, "name is required").max(80, "name must be at most 80 characters"),
   })
@@ -70,7 +70,7 @@ export function parseCreateCaregiver(body: unknown) {
   return parseWithSchema(caregiverAccountSchema, body);
 }
 
-const salesAccountSchema = z
+export const salesAccountSchema = z
   .object({
     firstName: z.string().trim().min(1, "firstName is required"),
     lastName: z.string().trim().min(1, "lastName is required"),
@@ -101,7 +101,7 @@ export function parseSalesListStatus(query: Record<string, unknown>): SalesListS
   return raw as SalesListStatus;
 }
 
-const caregiverPasswordSchema = z
+export const caregiverPasswordSchema = z
   .object({
     password: passwordSchema,
   })

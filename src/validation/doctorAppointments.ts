@@ -16,7 +16,7 @@ const text = (label: string, max: number) =>
     .min(1, `${label} is required`)
     .max(max, `${label} must be at most ${max} characters`);
 
-const createSchema = z
+export const doctorAppointmentCreateSchema = z
   .object({
     clientId: z.string({ required_error: "clientId is required" }).trim().min(1, "clientId is required"),
     typeId: z.string({ required_error: "typeId is required" }).trim().min(1, "typeId is required"),
@@ -32,7 +32,7 @@ const createSchema = z
   })
   .strict();
 
-const updateSchema = z
+export const doctorAppointmentUpdateSchema = z
   .object({
     clientId: z.string().trim().min(1).optional(),
     typeId: z.string().trim().min(1).optional(),
@@ -48,14 +48,14 @@ const updateSchema = z
   })
   .strict();
 
-const typeNameSchema = z
+export const doctorAppointmentTypeSchema = z
   .object({
     name: z.string().trim().min(1, "name is required").max(80, "name must be at most 80 characters"),
   })
   .strict();
 
 export function parseCreateDoctorAppointment(body: unknown) {
-  return parseWithSchema(createSchema, body);
+  return parseWithSchema(doctorAppointmentCreateSchema, body);
 }
 
 export function parseUpdateDoctorAppointment(body: unknown) {
@@ -64,12 +64,12 @@ export function parseUpdateDoctorAppointment(body: unknown) {
   }
   return {
     present: body as Record<string, unknown>,
-    value: parseWithSchema(updateSchema, body),
+    value: parseWithSchema(doctorAppointmentUpdateSchema, body),
   };
 }
 
 export function parseDoctorAppointmentType(body: unknown) {
-  return parseWithSchema(typeNameSchema, body);
+  return parseWithSchema(doctorAppointmentTypeSchema, body);
 }
 
 export interface DoctorListQuery extends PageQuery {
